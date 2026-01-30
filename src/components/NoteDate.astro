@@ -1,0 +1,53 @@
+---
+export interface Props {
+  nonce?: string;
+  ariaLabel?: string;
+}
+
+const { nonce, ariaLabel = "Current local time" } = Astro.props;
+---
+
+<div class="note__date" aria-label={ariaLabel} role="status" aria-live="polite">
+</div>
+
+<script is:inline nonce={nonce}>
+  (() => {
+    const script = document.currentScript;
+    const el =
+      script && script.previousElementSibling instanceof HTMLElement
+        ? script.previousElementSibling
+        : null;
+    if (!el || !el.classList.contains("note__date")) return;
+
+    const months = [
+      "january",
+      "february",
+      "march",
+      "april",
+      "may",
+      "june",
+      "july",
+      "august",
+      "september",
+      "october",
+      "november",
+      "december",
+    ];
+
+    const pad = (n) => String(n).padStart(2, "0");
+
+    const tick = () => {
+      const now = new Date();
+      const month = months[now.getMonth()];
+      const day = now.getDate();
+      const year = now.getFullYear();
+      const h = pad(now.getHours());
+      const m = pad(now.getMinutes());
+      const s = pad(now.getSeconds());
+      el.textContent = `${month} ${day} ${year} ${h}:${m}:${s}`;
+    };
+
+    tick();
+    setInterval(tick, 1000);
+  })();
+</script>

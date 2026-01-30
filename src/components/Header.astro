@@ -1,0 +1,102 @@
+---
+const isHome = Astro.url.pathname === "/";
+const cspNonce = Astro.locals.cspNonce;
+---
+
+<header class="topbar">
+  <nav
+    class={`topbar__nav${isHome ? " topbar__nav--home" : ""}`}
+    aria-label="Primary"
+  >
+    <button
+      class="topbar__back"
+      type="button"
+      aria-label="Go back"
+      hidden={isHome}
+    >
+      <span aria-hidden="true">←</span>
+    </button>
+    <button
+      class="topbar__toggle"
+      type="button"
+      aria-label="Toggle theme"
+      title="Toggle theme"
+    >
+      <span class="topbar__toggleIcon" aria-hidden="true">☀︎</span>
+    </button>
+    <span class="topbar__spacer" aria-hidden="true"></span>
+  </nav>
+</header>
+
+<script is:inline nonce={cspNonce}>
+  (() => {
+    const STORAGE_KEY = "theme";
+
+    const toggle = document.querySelector(".topbar__toggle");
+    const icon = document.querySelector(".topbar__toggleIcon");
+    const back = document.querySelector(".topbar__back");
+    if (!toggle || !icon) return;
+
+    const apply = (theme) => {
+      document.documentElement.dataset.theme = theme;
+      icon.textContent = theme === "dark" ? "☾" : "☀︎";
+    };
+
+    const getStoredTheme = () => {
+      try {
+        const value = localStorage.getItem(STORAGE_KEY);
+        return value === "light" || value === "dark" ? value : null;
+      } catch {
+        return null;
+      }
+    };
+
+    const setStoredTheme = (theme) => {
+      try {
+        localStorage.setItem(STORAGE_KEY, theme);
+      } catch {
+        // no-op
+      }
+    };
+
+    const syncFromStorage = () => {
+      const stored = getStoredTheme();
+      const fallback =
+        document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+      const theme = stored ?? fallback ?? "dark";
+      apply(theme);
+      if (!stored) {
+        setStoredTheme(theme);
+      }
+    };
+
+    // Initial sync with localStorage (or dark by default)
+    syncFromStorage();
+
+    // Keep theme in sync when navigating with the browser back/forward buttons
+    window.addEventListener("pageshow", () => {
+      syncFromStorage();
+    });
+
+    // Sync across tabs/windows if theme changes elsewhere
+    window.addEventListener("storage", (event) => {
+      if (event.key === STORAGE_KEY) {
+        syncFromStorage();
+      }
+    });
+
+    toggle.addEventListener("click", () => {
+      const current =
+        document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+      const next = current === "dark" ? "light" : "dark";
+      apply(next);
+      setStoredTheme(next);
+    });
+
+    if (back && !back.hidden) {
+      back.addEventListener("click", () => {
+        window.location.href = "/";
+      });
+    }
+  })();
+</script>

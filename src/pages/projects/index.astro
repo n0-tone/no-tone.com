@@ -1,0 +1,350 @@
+---
+import BaseHead from "../../components/BaseHead.astro";
+import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
+
+const title = "projects";
+const cspNonce = Astro.locals.cspNonce;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <BaseHead title={title} description={title} />
+    <link
+      rel="preload"
+      as="fetch"
+      href="/api/projects.json"
+      crossorigin="anonymous"
+    />
+  </head>
+  <body>
+    <Header />
+    <main class="projects" aria-label="Projects">
+      <section class="projects__panel" aria-label="Projects browser">
+        <div class="projects__header">
+          <h1 class="projects__title">projects/</h1>
+          <p class="projects__subtitle">Search + filter my GitHub repos.</p>
+        </div>
+
+        <form
+          class="projects__controls"
+          aria-label="Filters"
+          onsubmit="return false"
+        >
+          <label class="projects__field">
+            <span class="projects__label">search</span>
+            <input
+              class="projects__input"
+              id="q"
+              name="q"
+              type="search"
+              autocomplete="off"
+              placeholder="name, description, topic…"
+            />
+          </label>
+
+          <div class="projects__row">
+            <label class="projects__field">
+              <span class="projects__label">language</span>
+              <select class="projects__select" id="lang" name="lang">
+                <option value="">all</option>
+              </select>
+            </label>
+
+            <label class="projects__field projects__field--checkbox">
+              <input id="pages" name="pages" type="checkbox" />
+              <span class="projects__label">github pages</span>
+            </label>
+
+            <label class="projects__field projects__field--checkbox">
+              <input id="hasWebsite" name="hasWebsite" type="checkbox" />
+              <span class="projects__label">has website</span>
+            </label>
+          </div>
+
+          <div class="projects__row">
+            <label class="projects__field">
+              <span class="projects__label">sort</span>
+              <select class="projects__select" id="sort" name="sort">
+                <option value="updated">updated</option>
+                <option value="stars">stars</option>
+                <option value="name">name</option>
+              </select>
+            </label>
+
+            <button class="projects__button" id="reset" type="button">
+              reset
+            </button>
+            <span class="projects__meta" id="meta" aria-live="polite"></span>
+          </div>
+        </form>
+
+        <div class="projects__list" id="list" aria-label="Project list"></div>
+      </section>
+    </main>
+    <Footer />
+
+    <script is:inline nonce={cspNonce}>
+      (() => {
+        const apiUrl = new URL("/api/projects.json", window.location.origin);
+
+        const $ = (sel) => document.querySelector(sel);
+        const listEl = $("#list");
+        const metaEl = $("#meta");
+        const qEl = $("#q");
+        const langEl = $("#lang");
+        const pagesEl = $("#pages");
+        const hasWebsiteEl = $("#hasWebsite");
+        const sortEl = $("#sort");
+        const resetEl = $("#reset");
+
+        if (
+          !listEl ||
+          !metaEl ||
+          !qEl ||
+          !langEl ||
+          !pagesEl ||
+          !hasWebsiteEl ||
+          !sortEl ||
+          !resetEl
+        ) {
+          return;
+        }
+
+        const normalize = (value) =>
+          String(value || "")
+            .toLowerCase()
+            .trim();
+
+        const lc = (value) => String(value || "").toLowerCase();
+        const span = (className, text) => {
+          const el = document.createElement("span");
+          el.className = className;
+          el.textContent = text;
+          return el;
+        };
+
+        const noTone = window.noTone;
+        if (!noTone?.isSafeExternalUrl || !noTone?.openExternal) return;
+
+        const state = {
+          repos: [],
+        };
+
+        const getFilters = () => {
+          const q = normalize(qEl.value);
+          const lang = String(langEl.value || "");
+          const pages = !!pagesEl.checked;
+          const hasWebsite = !!hasWebsiteEl.checked;
+          const sort = String(sortEl.value || "updated");
+          return { q, lang, pages, hasWebsite, sort };
+        };
+
+        const matchesQuery = (repo, q) => {
+          if (!q) return true;
+          return String(repo.__search || "").includes(q);
+        };
+
+        const hasGithubPages = (repo) => {
+          const topics = Array.isArray(repo.topics) ? repo.topics : [];
+          return repo.hasPages === true || topics.includes("github-pages");
+        };
+
+        const compare = (a, b, sort) => {
+          if (sort === "stars") return (b.stars || 0) - (a.stars || 0);
+          if (sort === "name")
+            return String(a.name).localeCompare(String(b.name));
+          const ad = a.updatedAt ? Date.parse(a.updatedAt) : 0;
+          const bd = b.updatedAt ? Date.parse(b.updatedAt) : 0;
+          return bd - ad;
+        };
+
+        const render = () => {
+          const { q, lang, pages, hasWebsite, sort } = getFilters();
+
+          let filtered = state.repos.slice();
+          // Always exclude forks
+          filtered = filtered.filter((r) => !r.isFork);
+          if (hasWebsite) filtered = filtered.filter((r) => r.__hasWebsite);
+          if (lang) filtered = filtered.filter((r) => r.language === lang);
+          if (pages) filtered = filtered.filter((r) => r.__hasPages);
+          if (q) filtered = filtered.filter((r) => matchesQuery(r, q));
+
+          filtered.sort((a, b) => compare(a, b, sort));
+
+          metaEl.textContent = `${filtered.length}/${state.repos.length}`;
+          listEl.replaceChildren();
+
+          if (!filtered.length) {
+            const empty = document.createElement("div");
+            empty.className = "projects__empty";
+            empty.textContent = "no matches";
+            listEl.appendChild(empty);
+            return;
+          }
+
+          const frag = document.createDocumentFragment();
+
+          for (const repo of filtered) {
+            const card = document.createElement("div");
+            card.className = "projectCard";
+            card.setAttribute("role", "link");
+            card.tabIndex = 0;
+            card.dataset.repoUrl = String(repo.url || "");
+
+            const title = document.createElement("div");
+            title.className = "projectCard__title";
+            title.textContent = repo.name;
+
+            const desc = document.createElement("div");
+            desc.className = "projectCard__desc";
+            desc.textContent = repo.description || "";
+
+            const homepage = String(repo.homepage || "").trim();
+            const published = document.createElement("a");
+            published.className = "projectCard__published";
+            published.textContent = "published website";
+            if (repo.__hasWebsite && homepage) {
+              published.href = homepage;
+              published.target = "_blank";
+              published.rel = "noreferrer noopener";
+            }
+
+            const meta = document.createElement("div");
+            meta.className = "projectCard__meta";
+
+            const left = document.createElement("div");
+            left.className = "projectCard__metaLeft";
+            left.appendChild(span("projectCard__kvLabel", "lang:"));
+            left.appendChild(
+              span("projectCard__kvValue", lc(repo.language || "Other")),
+            );
+
+            const right = document.createElement("div");
+            right.className = "projectCard__metaRight";
+            const bits = [];
+            if (repo.stars) bits.push(`★ ${repo.stars}`);
+            if (repo.isFork) bits.push("fork");
+            if (repo.isArchived) bits.push("archived");
+            if (repo.__hasPages) bits.push("pages");
+            right.textContent = bits.join(" · ");
+
+            meta.appendChild(left);
+            meta.appendChild(right);
+
+            card.appendChild(title);
+            if (desc.textContent) card.appendChild(desc);
+            if (published.href) card.appendChild(published);
+            card.appendChild(meta);
+
+            const topics = Array.isArray(repo.topics)
+              ? repo.topics.slice(0, 8)
+              : [];
+            if (topics.length) {
+              const topicsEl = document.createElement("div");
+              topicsEl.className = "projectCard__topics";
+              topicsEl.appendChild(span("projectCard__kvLabel", "topics:"));
+              topicsEl.appendChild(
+                span("projectCard__kvValue", topics.join(" / ")),
+              );
+              card.appendChild(topicsEl);
+            }
+
+            frag.appendChild(card);
+          }
+
+          listEl.appendChild(frag);
+        };
+
+        const populateLanguages = (repos) => {
+          const values = new Set();
+          for (const r of repos) {
+            const lang = r && r.language ? String(r.language) : "Other";
+            values.add(lang);
+          }
+          const langs = Array.from(values).sort((a, b) => a.localeCompare(b));
+          for (const lang of langs) {
+            const opt = document.createElement("option");
+            opt.value = lang;
+            opt.textContent = lc(lang);
+            langEl.appendChild(opt);
+          }
+        };
+
+        const bind = () => {
+          const onChange = () => render();
+          qEl.addEventListener("input", onChange);
+          langEl.addEventListener("change", onChange);
+          pagesEl.addEventListener("change", onChange);
+          hasWebsiteEl.addEventListener("change", onChange);
+          sortEl.addEventListener("change", onChange);
+
+          listEl.addEventListener("click", (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) return;
+            if (target.closest("a")) return;
+            const card = target.closest(".projectCard");
+            if (!(card instanceof HTMLElement)) return;
+            noTone.openExternal(card.dataset.repoUrl);
+          });
+
+          listEl.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            const target = event.target;
+            if (!(target instanceof Element)) return;
+            if (target.closest("a")) return;
+            const card = target.closest(".projectCard");
+            if (!(card instanceof HTMLElement)) return;
+            event.preventDefault();
+            noTone.openExternal(card.dataset.repoUrl);
+          });
+
+          resetEl.addEventListener("click", () => {
+            qEl.value = "";
+            langEl.value = "";
+            pagesEl.checked = false;
+            hasWebsiteEl.checked = false;
+            sortEl.value = "updated";
+            render();
+          });
+        };
+
+        const load = async () => {
+          listEl.textContent = "loading…";
+          metaEl.textContent = "";
+
+          try {
+            const res = await fetch(apiUrl);
+            const data = await res.json();
+            const raw = Array.isArray(data) ? data : [];
+            state.repos = raw.map((repo) => {
+              const topics = Array.isArray(repo.topics) ? repo.topics : [];
+              const hasPages =
+                repo.hasPages === true || topics.includes("github-pages");
+              const homepage = String(repo.homepage || "").trim();
+              const search = normalize(
+                [repo.name, repo.description, repo.language, ...topics].join(
+                  " ",
+                ),
+              );
+              return {
+                ...repo,
+                __search: search,
+                __hasPages: hasPages,
+                __hasWebsite: noTone.isSafeExternalUrl(homepage),
+              };
+            });
+            populateLanguages(state.repos);
+            bind();
+            render();
+          } catch {
+            listEl.textContent = "failed to load";
+          }
+        };
+
+        load();
+      })();
+    </script>
+  </body>
+</html>

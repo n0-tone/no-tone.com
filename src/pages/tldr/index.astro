@@ -1,0 +1,68 @@
+---
+import BaseHead from "../../components/BaseHead.astro";
+import Header from "../../components/Header.astro";
+import Footer from "../../components/Footer.astro";
+import NoteDate from "../../components/NoteDate.astro";
+
+const title = "thoughts";
+
+const cspNonce = Astro.locals.cspNonce;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <BaseHead title={title} description={title} image="/b.png" />
+  </head>
+  <body>
+    <Header />
+    <main class="note">
+      <NoteDate nonce={cspNonce} />
+      <h1 class="page__title">tldr/</h1>
+      <div class="note__content">
+        <p>
+          I’m an aspiring <strong>full-stack engineer</strong> focused on building
+          clean, secure, production-ready web systems.
+        </p>
+
+        <p>
+          I’m currently attending my <strong
+            >master’s in computer science</strong
+          >. Outside of coursework, I’m deep into <strong>OSINT</strong> +
+          <strong>OPSEC</strong>, and I care a lot about <strong>privacy</strong
+          > (both for users and for teams).
+        </p>
+
+        <p>
+          I’ve built and maintain my own <strong>homelab</strong>, so I’m
+          comfortable shipping and operating services in private environments —
+          thinking in terms of least privilege, sane defaults, and tight CSP.
+        </p>
+
+        <ul>
+          <li>Full-stack web apps (frontend UX + backend APIs)</li>
+          <li>Cloudflare Workers + edge patterns</li>
+          <li>Security mindset + privacy-first engineering</li>
+        </ul>
+
+        <p>
+          For projects, the best starting point is
+          <a href="/projects/">/projects/</a> and my highlighted repos on
+          <a
+            href="https://github.com/n0-tone"
+            target="_blank"
+            rel="noreferrer noopener">GitHub</a
+          >. For more clarity on my known languages, experience and stack check
+          out <a href="/usr/">/usr/</a>.
+        </p>
+
+        <p>
+          Recent work includes a chatbot management app (Python/Flask), this
+          Cloudflare Workers-powered site with strict CSP + nonce, and homelab
+          tooling protected behind Zero Trust.
+        </p>
+      </div>
+    </main>
+    <Footer />
+  </body>
+</html>

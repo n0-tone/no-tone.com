@@ -1,0 +1,22 @@
+---
+const pathname = Astro.url.pathname;
+const cspNonce = Astro.locals.cspNonce;
+---
+
+<footer class="bottombar">
+  <nav class="bottombar__nav" aria-label="Social">
+    <a
+      class="bottombar__link"
+      href="https://github.com/n0-tone"
+      target="_blank"
+      rel="noreferrer noopener">github</a
+    >
+    <span class="bottombar__sep" aria-hidden="true">/</span>
+    <a
+      class="bottombar__link"
+      href="https://domaincontact.registrar.cloudflare.com/no-tone.com"
+      target="_blank"
+      rel="noreferrer noopener">contact</a
+    >
+  </nav>
+</footer>

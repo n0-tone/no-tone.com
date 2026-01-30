@@ -1,0 +1,105 @@
+---
+import globalCssUrl from "../styles/global.css?url";
+
+interface Props {
+  title: string;
+  description: string;
+  image?: string;
+}
+
+const { title, description, image = "/b.png" } = Astro.props as Props;
+const jbMonoFontUrl = import.meta.env.PUBLIC_JB_MONO_FONT_URL;
+const fontOrigin = jbMonoFontUrl ? new URL(jbMonoFontUrl).origin : null;
+
+const cspNonce = Astro.locals.cspNonce;
+
+const canonicalURL = Astro.site
+  ? new URL(Astro.url.pathname, Astro.site)
+  : Astro.url;
+---
+
+<!-- Global Metadata -->
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="icon" type="image/png" sizes="32x32" href="/y.png" />
+<meta name="generator" content={Astro.generator} />
+<link rel="preload" as="style" href={globalCssUrl} />
+<link rel="stylesheet" href={globalCssUrl} />
+
+<!-- Preconnect to primary origin (covers HTML, API, assets) -->
+<link rel="preconnect" href={canonicalURL.origin} />
+
+<!-- Preconnect to Cloudflare Fonts origin -->
+{
+  fontOrigin && fontOrigin !== canonicalURL.origin && (
+    <link rel="preconnect" href={fontOrigin} crossorigin="anonymous" />
+  )
+}
+
+<!-- Cloudflare Fonts (JetBrains Mono Variable) -->
+{jbMonoFontUrl && <link rel="stylesheet" href={jbMonoFontUrl} />}
+
+<!-- Theme bootstrap (runs before first paint) -->
+<script is:inline nonce={cspNonce}>
+  (() => {
+    const STORAGE_KEY = "theme";
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      const theme = stored === "light" || stored === "dark" ? stored : "dark";
+      document.documentElement.dataset.theme = theme;
+      if (stored !== theme) {
+        localStorage.setItem(STORAGE_KEY, theme);
+      }
+    } catch {
+      document.documentElement.dataset.theme = "dark";
+    }
+  })();
+</script>
+
+<!-- Shared client helpers (CSP-safe, no HTML sinks) -->
+<script is:inline nonce={cspNonce}>
+  (() => {
+    const root = (window.noTone ??= {});
+
+    root.isSafeExternalUrl = (value) => {
+      try {
+        const raw = String(value || "").trim();
+        if (!raw) return false;
+        const u = new URL(raw);
+        return u.protocol === "http:" || u.protocol === "https:";
+      } catch {
+        return false;
+      }
+    };
+
+    root.openExternal = (url) => {
+      if (!root.isSafeExternalUrl(url)) return;
+      window.open(String(url), "_blank", "noopener,noreferrer");
+    };
+  })();
+</script>
+
+<!-- Canonical URL -->
+<link rel="canonical" href={canonicalURL} />
+
+<!-- RSS Feed Discovery -->
+<link rel="alternate" type="application/rss+xml" title="RSS" href="/rss.xml" />
+
+<!-- Primary Meta Tags -->
+<title>{title}</title>
+<meta name="title" content={title} />
+<meta name="description" content={description} />
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website" />
+<meta property="og:url" content={Astro.url} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:image" content={new URL(image, Astro.url)} />
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image" />
+<meta property="twitter:url" content={Astro.url} />
+<meta property="twitter:title" content={title} />
+<meta property="twitter:description" content={description} />
+<meta property="twitter:image" content={new URL(image, Astro.url)} />

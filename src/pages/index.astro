@@ -1,0 +1,303 @@
+---
+import BaseHead from "../components/BaseHead.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import { SITE_TITLE, SITE_DESCRIPTION } from "../consts";
+const cspNonce = Astro.locals.cspNonce;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+  </head>
+  <body>
+    <Header />
+    <main class="desktop" aria-label="Desktop">
+      <a class="icon" data-icon="folder-projects" href="/projects">
+        <span class="icon__glyph" aria-hidden="true">
+          <img
+            src="/b.png"
+            alt="projects"
+            width="64"
+            height="64"
+            loading="eager"
+            decoding="async"
+          />
+        </span>
+        <span class="icon__label">projects</span>
+      </a>
+
+      <a class="icon" data-icon="folder-tldr" href="/tldr">
+        <span class="icon__glyph" aria-hidden="true">
+          <img
+            src="/g.png"
+            alt="tldr"
+            width="64"
+            height="64"
+            loading="eager"
+            decoding="async"
+          />
+        </span>
+        <span class="icon__label">tldr</span>
+      </a>
+
+      <a class="icon" data-icon="folder-usr" href="/usr">
+        <span class="icon__glyph" aria-hidden="true">
+          <img
+            src="/y.png"
+            alt="usr"
+            width="64"
+            height="64"
+            loading="eager"
+            decoding="async"
+          />
+        </span>
+        <span class="icon__label">usr</span>
+      </a>
+    </main>
+    <Footer />
+
+    <script is:inline nonce={cspNonce}>
+      (() => {
+        const STORAGE_KEY = "desktop:iconPositions:v2";
+
+        const icons = Array.from(document.querySelectorAll(".icon[data-icon]"));
+        if (!icons.length) return;
+
+        const load = () => {
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return {};
+            const data = JSON.parse(raw);
+            return typeof data === "object" && data ? data : {};
+          } catch {
+            return {};
+          }
+        };
+
+        const save = (positions) => {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(positions));
+          } catch {
+            // no-op
+          }
+        };
+
+        const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+        const DEFAULTS = {
+          "folder-projects": { xRatio: 0.5, yRatio: 0.4 },
+          "folder-tldr": { xRatio: 0.2, yRatio: 0.18 },
+        };
+
+        const positions = { ...DEFAULTS, ...load() };
+        const desktop = document.querySelector(".desktop");
+        const TOP_GUARD = 16;
+        const SIDE_GUARD = 16;
+
+        const getEnvironment = () => {
+          const desktopRect = desktop?.getBoundingClientRect();
+          const width = desktopRect?.width ?? window.innerWidth;
+          const height = desktopRect?.height ?? window.innerHeight;
+
+          const toDesktopRect = (rect) => {
+            if (!rect || !desktopRect) return null;
+            return {
+              left: rect.left - desktopRect.left,
+              top: rect.top - desktopRect.top,
+              right: rect.right - desktopRect.left,
+              bottom: rect.bottom - desktopRect.top,
+            };
+          };
+
+          const barriers = [];
+          const toggleEl = document.querySelector(".topbar__toggle");
+          const footerNavEl = document.querySelector(".bottombar__nav");
+
+          if (toggleEl) {
+            const r = toDesktopRect(toggleEl.getBoundingClientRect());
+            if (r) {
+              barriers.push({
+                left: r.left - 12,
+                top: r.top - 12,
+                right: r.right + 12,
+                bottom: r.bottom + 12,
+              });
+            }
+          }
+
+          if (footerNavEl) {
+            const r = toDesktopRect(footerNavEl.getBoundingClientRect());
+            if (r) {
+              barriers.push({
+                left: r.left - 16,
+                top: r.top - 16,
+                right: r.right + 16,
+                bottom: r.bottom + 16,
+              });
+            }
+          }
+
+          return { width, height, barriers };
+        };
+
+        const applyPosition = (el, env) => {
+          const id = el.getAttribute("data-icon");
+          if (!id) return;
+          const base = positions[id] ??
+            DEFAULTS[id] ?? { xRatio: 0.3, yRatio: 0.3 };
+          const width = env.width;
+          const height = env.height;
+          const iconWidth = el.offsetWidth;
+          const iconHeight = el.offsetHeight;
+          const maxX = Math.max(0, width - iconWidth - SIDE_GUARD);
+          const maxY = Math.max(0, height - iconHeight - SIDE_GUARD);
+
+          let x = base.xRatio * width;
+          let y = base.yRatio * height;
+
+          x = clamp(x, SIDE_GUARD, maxX);
+          y = clamp(y, TOP_GUARD, maxY);
+          positions[id] = {
+            xRatio: width ? x / width : base.xRatio,
+            yRatio: height ? y / height : base.yRatio,
+          };
+
+          el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+        };
+
+        const initialEnv = getEnvironment();
+        icons.forEach((el) => applyPosition(el, initialEnv));
+        if (desktop instanceof HTMLElement) {
+          desktop.classList.add("desktop--ready");
+        }
+
+        const select = (target) => {
+          icons.forEach((el) => {
+            el.classList.toggle("is-selected", target && el === target);
+          });
+        };
+
+        if (desktop) {
+          desktop.addEventListener("pointerdown", (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) return;
+            if (!target.closest(".icon")) {
+              select(null);
+            }
+          });
+        }
+
+        icons.forEach((el) => {
+          el.addEventListener("pointerdown", (event) => {
+            if (event.button !== 0) return;
+            const id = el.getAttribute("data-icon");
+            if (!id) return;
+
+            event.preventDefault();
+
+            const env = getEnvironment();
+            const base = positions[id] ??
+              DEFAULTS[id] ?? { xRatio: 0.3, yRatio: 0.3 };
+            const start = {
+              x: base.xRatio * env.width,
+              y: base.yRatio * env.height,
+            };
+            const startX = event.clientX;
+            const startY = event.clientY;
+            let moved = false;
+            select(el);
+
+            el.setPointerCapture(event.pointerId);
+            el.classList.add("is-dragging");
+            el.style.zIndex = "10";
+
+            const onMove = (e) => {
+              e.preventDefault();
+              const dx = e.clientX - startX;
+              const dy = e.clientY - startY;
+              if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+
+              const maxX = Math.max(0, env.width - el.offsetWidth - SIDE_GUARD);
+              const maxY = Math.max(
+                0,
+                env.height - el.offsetHeight - SIDE_GUARD,
+              );
+
+              let nextX = clamp(start.x + dx, SIDE_GUARD, maxX);
+              let nextY = clamp(start.y + dy, TOP_GUARD, maxY);
+
+              const iconRect = {
+                left: nextX,
+                top: nextY,
+                right: nextX + el.offsetWidth,
+                bottom: nextY + el.offsetHeight,
+              };
+
+              for (const barrier of env.barriers) {
+                const intersects = !(
+                  iconRect.right < barrier.left ||
+                  iconRect.left > barrier.right ||
+                  iconRect.bottom < barrier.top ||
+                  iconRect.top > barrier.bottom
+                );
+
+                if (intersects) {
+                  const iconCenterX = (iconRect.left + iconRect.right) / 2;
+                  const barrierCenterX = (barrier.left + barrier.right) / 2;
+                  if (iconCenterX <= barrierCenterX) {
+                    nextX = barrier.left - el.offsetWidth - 8;
+                  } else {
+                    nextX = barrier.right + 8;
+                  }
+                }
+              }
+
+              nextX = clamp(nextX, SIDE_GUARD, maxX);
+              nextY = clamp(nextY, TOP_GUARD, maxY);
+              positions[id] = {
+                xRatio: env.width ? nextX / env.width : 0,
+                yRatio: env.height ? nextY / env.height : 0,
+              };
+              el.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
+            };
+
+            const onUp = () => {
+              el.classList.remove("is-dragging");
+              el.style.zIndex = "";
+              save(positions);
+              window.removeEventListener("pointermove", onMove);
+              window.removeEventListener("pointerup", onUp);
+
+              // Prevent accidental navigation after drag
+              if (moved) {
+                const href = el.getAttribute("href");
+                el.addEventListener(
+                  "click",
+                  (e) => {
+                    if (href) e.preventDefault();
+                  },
+                  { once: true },
+                );
+              }
+            };
+
+            window.addEventListener("pointermove", onMove);
+            window.addEventListener("pointerup", onUp, { once: true });
+          });
+
+          el.addEventListener("click", () => {
+            select(el);
+          });
+        });
+
+        window.addEventListener("resize", () => {
+          const env = getEnvironment();
+          icons.forEach((el) => applyPosition(el, env));
+          save(positions);
+        });
+      })();
+    </script>
+  </body>
+</html>
