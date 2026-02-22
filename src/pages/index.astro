@@ -226,16 +226,17 @@ const cspNonce = Astro.locals.cspNonce;
             const startX = event.clientX;
             const startY = event.clientY;
             let moved = false;
+            let frameId = 0;
+            let latestPoint = { x: startX, y: startY };
             select(el);
 
             el.setPointerCapture(event.pointerId);
             el.classList.add("is-dragging");
             el.style.zIndex = "10";
 
-            const onMove = (e) => {
-              e.preventDefault();
-              const dx = e.clientX - startX;
-              const dy = e.clientY - startY;
+            const applyDrag = (clientX, clientY) => {
+              const dx = clientX - startX;
+              const dy = clientY - startY;
               if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
 
               const { maxX, maxY } = getBounds(env, el);
@@ -278,7 +279,23 @@ const cspNonce = Astro.locals.cspNonce;
               el.style.transform = `translate3d(${nextX}px, ${nextY}px, 0)`;
             };
 
+            const onMove = (e) => {
+              e.preventDefault();
+              latestPoint = { x: e.clientX, y: e.clientY };
+              if (frameId) return;
+              frameId = window.requestAnimationFrame(() => {
+                frameId = 0;
+                applyDrag(latestPoint.x, latestPoint.y);
+              });
+            };
+
             const onUp = () => {
+              if (frameId) {
+                window.cancelAnimationFrame(frameId);
+                frameId = 0;
+                applyDrag(latestPoint.x, latestPoint.y);
+              }
+
               if (snapToGrid) {
                 const { maxX, maxY } = getBounds(env, el);
                 const snappedX = clamp(

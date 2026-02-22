@@ -346,6 +346,11 @@ hr {
 .projects__status {
   margin: 6px 0 0 0;
   font-size: 12px;
+  line-height: 1.2;
+  min-height: 1.2em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--fg);
 }
 
