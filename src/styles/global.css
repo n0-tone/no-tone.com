@@ -11,6 +11,8 @@
   --fg-strong: rgb(var(--gray-dark));
   --border: rgba(var(--gray), 20%);
   --selection-border: #4b4b4b;
+  --selection-bg: rgba(34, 41, 57, 16%);
+  --focus-ring: rgba(34, 41, 57, 90%);
 
   --chrome-fg: #010001;
   --desktop-label: #010001;
@@ -24,6 +26,8 @@ html[data-theme="dark"] {
   --fg-strong: #ffffff;
   --border: rgba(255, 255, 255, 25%);
   --selection-border: rgba(255, 255, 255, 70%);
+  --selection-bg: rgba(255, 255, 255, 26%);
+  --focus-ring: rgba(255, 255, 255, 92%);
   --chrome-fg: #ffffff;
   --desktop-label: #ffffff;
   --desktop-border: #ffffff;
@@ -177,8 +181,13 @@ hr {
 }
 
 :focus-visible {
-  outline: 2px solid var(--fg);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+::selection {
+  background: var(--selection-bg);
+  color: var(--fg-strong);
 }
 
 .sr-only {
@@ -334,6 +343,12 @@ hr {
   color: var(--fg);
 }
 
+.projects__status {
+  margin: 6px 0 0 0;
+  font-size: 12px;
+  color: var(--fg);
+}
+
 .projects__controls {
   margin-top: 18px;
   padding: 14px 14px;
@@ -428,10 +443,16 @@ hr {
   padding: 14px 14px;
   border: 1px solid var(--border);
   cursor: pointer;
+  transform: translateY(0);
+  transition:
+    border-color 120ms ease,
+    transform 120ms ease;
 }
 
-.projectCard:hover {
+.projectCard:hover,
+.projectCard:focus-visible {
   border-color: var(--selection-border);
+  transform: translateY(-1px);
 }
 
 .projectCard__title {
@@ -461,6 +482,13 @@ hr {
   text-decoration: underline;
   text-underline-offset: 3px;
   color: var(--fg-strong);
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: box-shadow 120ms ease;
+}
+
+.projectCard__published:hover,
+.projectCard__published:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--selection-border);
 }
 
 .projectCard__meta {

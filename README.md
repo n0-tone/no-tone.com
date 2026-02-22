@@ -67,6 +67,12 @@ npm run deploy
 
 # Generate Cloudflare type definitions
 npm run cf-typegen
+
+# Production dependency audit
+npm run audit
+
+# Full dependency audit (including dev dependencies)
+npm run audit:full
 ```
 
 ## License

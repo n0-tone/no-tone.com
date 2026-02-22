@@ -61,6 +61,8 @@ const cspNonce = Astro.locals.cspNonce;
     <script is:inline nonce={cspNonce}>
       (() => {
         const STORAGE_KEY = "desktop:iconPositions:v2";
+        const SNAP_KEY = "desktop:snapToGrid";
+        const GRID = 24;
 
         const icons = Array.from(document.querySelectorAll(".icon[data-icon]"));
         if (!icons.length) return;
@@ -85,6 +87,14 @@ const cspNonce = Astro.locals.cspNonce;
         };
 
         const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+        const snap = (value) => Math.round(value / GRID) * GRID;
+        let snapToGrid = false;
+
+        try {
+          snapToGrid = localStorage.getItem(SNAP_KEY) === "1";
+        } catch {
+          snapToGrid = false;
+        }
 
         const DEFAULTS = {
           "folder-projects": { xRatio: 0.5, yRatio: 0.4 },
@@ -264,6 +274,32 @@ const cspNonce = Astro.locals.cspNonce;
             };
 
             const onUp = () => {
+              if (snapToGrid) {
+                const maxX = Math.max(
+                  0,
+                  env.width - el.offsetWidth - SIDE_GUARD,
+                );
+                const maxY = Math.max(
+                  0,
+                  env.height - el.offsetHeight - SIDE_GUARD,
+                );
+                const snappedX = clamp(
+                  snap((positions[id]?.xRatio ?? 0) * env.width),
+                  SIDE_GUARD,
+                  maxX,
+                );
+                const snappedY = clamp(
+                  snap((positions[id]?.yRatio ?? 0) * env.height),
+                  TOP_GUARD,
+                  maxY,
+                );
+                positions[id] = {
+                  xRatio: env.width ? snappedX / env.width : 0,
+                  yRatio: env.height ? snappedY / env.height : 0,
+                };
+                el.style.transform = `translate3d(${snappedX}px, ${snappedY}px, 0)`;
+              }
+
               el.classList.remove("is-dragging");
               el.style.zIndex = "";
               save(positions);
@@ -296,6 +332,16 @@ const cspNonce = Astro.locals.cspNonce;
           const env = getEnvironment();
           icons.forEach((el) => applyPosition(el, env));
           save(positions);
+        });
+
+        window.addEventListener("keydown", (event) => {
+          if (!event.altKey || event.key.toLowerCase() !== "g") return;
+          snapToGrid = !snapToGrid;
+          try {
+            localStorage.setItem(SNAP_KEY, snapToGrid ? "1" : "0");
+          } catch {
+            // no-op
+          }
         });
       })();
     </script>

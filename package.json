@@ -24,6 +24,8 @@
   },
   "private": true,
   "scripts": {
+    "audit": "npm audit --omit=dev",
+    "audit:full": "npm audit",
     "astro": "astro",
     "build": "astro build",
     "cf-typegen": "wrangler types",

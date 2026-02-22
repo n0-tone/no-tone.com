@@ -5,6 +5,9 @@ const GITHUB_API_URL =
 const EDGE_TTL_SECONDS = 900; // 15 minutes at the edge
 const BROWSER_TTL_SECONDS = 300; // 5 minutes in the browser
 const CACHED_AT_HEADER = 'x-no-tone-cached-at';
+const LAST_UPDATED_HEADER = 'x-no-tone-last-updated';
+const RATE_LIMIT_MAX = 90;
+const RATE_LIMIT_WINDOW_MS = 60_000;
 
 interface GithubRepo {
 	name?: string;
@@ -35,6 +38,12 @@ interface SimplifiedRepo {
 	updatedAt: string;
 }
 
+type RateLimitEntry = { count: number; resetAt: number };
+
+const rateLimitStore: Map<string, RateLimitEntry> =
+	(globalThis as any).__noToneProjectRateLimit ??
+	((globalThis as any).__noToneProjectRateLimit = new Map<string, RateLimitEntry>());
+
 const simplifyRepos = (repos: unknown): SimplifiedRepo[] => {
 	if (!Array.isArray(repos)) return [];
 	return repos
@@ -61,6 +70,8 @@ const buildHeaders = (origin: string | null) => {
 		'Content-Type': 'application/json; charset=utf-8',
 		'Cache-Control': `public, max-age=${BROWSER_TTL_SECONDS}, s-maxage=${EDGE_TTL_SECONDS}`,
 		'X-Content-Type-Options': 'nosniff',
+		'Cross-Origin-Resource-Policy': 'same-origin',
+		'Referrer-Policy': 'no-referrer',
 	};
 
 	// Only allow JS running on your own origin to read this response
@@ -70,6 +81,34 @@ const buildHeaders = (origin: string | null) => {
 	}
 
 	return headers;
+};
+
+const getClientIp = (request: Request): string => {
+	const cfIp = request.headers.get('CF-Connecting-IP');
+	if (cfIp) return cfIp;
+	const xff = request.headers.get('X-Forwarded-For');
+	if (!xff) return 'unknown';
+	return xff.split(',')[0]?.trim() || 'unknown';
+};
+
+const isRateLimited = (request: Request, nowMs: number): boolean => {
+	const ip = getClientIp(request);
+	const current = rateLimitStore.get(ip);
+	if (!current || current.resetAt <= nowMs) {
+		rateLimitStore.set(ip, { count: 1, resetAt: nowMs + RATE_LIMIT_WINDOW_MS });
+		return false;
+	}
+	current.count += 1;
+	return current.count > RATE_LIMIT_MAX;
+};
+
+const getLastUpdatedAt = (repos: SimplifiedRepo[]): string => {
+	let newest = 0;
+	for (const repo of repos) {
+		const ts = repo.updatedAt ? Date.parse(repo.updatedAt) : 0;
+		if (ts > newest) newest = ts;
+	}
+	return newest ? new Date(newest).toISOString() : '';
 };
 
 const readCachedAtMs = (res: Response): number => {
@@ -86,15 +125,22 @@ const isFresh = (cachedAtMs: number, nowMs: number): boolean => {
 
 const responseFromCached = (cached: Response, origin: string | null): Response => {
 	const etag = cached.headers.get('ETag');
+	const lastUpdated = cached.headers.get(LAST_UPDATED_HEADER);
 	const headers = buildHeaders(origin);
 	if (etag) headers['ETag'] = etag;
+	if (lastUpdated) headers[LAST_UPDATED_HEADER] = lastUpdated;
 	return new Response(cached.body, { status: 200, headers });
 };
 
-const toCachedResponse = (body: string, etag: string | null): Response => {
+const toCachedResponse = (
+	body: string,
+	etag: string | null,
+	lastUpdated: string,
+): Response => {
 	const headers: Record<string, string> = {
 		'Content-Type': 'application/json; charset=utf-8',
 		[CACHED_AT_HEADER]: String(Date.now()),
+		[LAST_UPDATED_HEADER]: lastUpdated,
 	};
 	if (etag) headers['ETag'] = etag;
 	return new Response(body, { status: 200, headers });
@@ -104,12 +150,27 @@ export async function GET(context: APIContext): Promise<Response> {
 	const request = context.request;
 	const siteOrigin = context.url.origin;
 	const origin = request.headers.get('Origin');
+	const secFetchSite = request.headers.get('Sec-Fetch-Site');
 
 	// Basic origin check: allow same-origin requests and non-CORS requests (like server-to-server or direct curl)
 	if (origin && origin !== siteOrigin) {
 		return new Response(JSON.stringify({ error: 'Forbidden' }), {
 			status: 403,
 			headers: buildHeaders(null),
+		});
+	}
+
+	if (secFetchSite && secFetchSite === 'cross-site') {
+		return new Response(JSON.stringify({ error: 'Forbidden' }), {
+			status: 403,
+			headers: buildHeaders(origin ?? null),
+		});
+	}
+
+	if (isRateLimited(request, Date.now())) {
+		return new Response(JSON.stringify({ error: 'Too Many Requests' }), {
+			status: 429,
+			headers: buildHeaders(origin ?? null),
 		});
 	}
 
@@ -142,7 +203,11 @@ export async function GET(context: APIContext): Promise<Response> {
 
 					if (upstream.status === 304) {
 						const body = await cachedRes.clone().text();
-						await cache.put(cacheKey, toCachedResponse(body, cachedEtag ?? null));
+						const lastUpdated = cachedRes.headers.get(LAST_UPDATED_HEADER) ?? '';
+						await cache.put(
+							cacheKey,
+							toCachedResponse(body, cachedEtag ?? null, lastUpdated),
+						);
 						return;
 					}
 
@@ -152,7 +217,10 @@ export async function GET(context: APIContext): Promise<Response> {
 					const simplified = simplifyRepos(raw);
 					const body = JSON.stringify(simplified);
 					const etag = upstream.headers.get('ETag');
-					await cache.put(cacheKey, toCachedResponse(body, etag));
+					await cache.put(
+						cacheKey,
+						toCachedResponse(body, etag, getLastUpdatedAt(simplified)),
+					);
 				} catch {
 					// ignore revalidation errors
 				}
@@ -178,7 +246,8 @@ export async function GET(context: APIContext): Promise<Response> {
 	if (upstream.status === 304 && cached) {
 		// Not modified: reuse cached body but bump cached timestamp
 		const body = await cached.clone().text();
-		const newCached = toCachedResponse(body, cachedEtag ?? null);
+		const lastUpdated = cached.headers.get(LAST_UPDATED_HEADER) ?? '';
+		const newCached = toCachedResponse(body, cachedEtag ?? null, lastUpdated);
 		if (cache) {
 			try {
 				await cache.put(cacheKey, newCached.clone());
@@ -186,7 +255,9 @@ export async function GET(context: APIContext): Promise<Response> {
 				// ignore cache errors
 			}
 		}
-		return new Response(body, { status: 200, headers: buildHeaders(origin ?? null) });
+		const headers = buildHeaders(origin ?? null);
+		headers[LAST_UPDATED_HEADER] = lastUpdated;
+		return new Response(body, { status: 200, headers });
 	}
 
 	if (!upstream.ok) {
@@ -201,16 +272,22 @@ export async function GET(context: APIContext): Promise<Response> {
 	const raw = await upstream.json();
 	const simplified = simplifyRepos(raw);
 	const body = JSON.stringify(simplified);
+	const lastUpdated = getLastUpdatedAt(simplified);
 
 	// Store in edge cache for subsequent requests (store ETag + cached-at)
 	const etag = upstream.headers.get('ETag');
 	if (cache) {
 		try {
-			await cache.put(cacheKey, toCachedResponse(body, etag).clone());
+			await cache.put(
+				cacheKey,
+				toCachedResponse(body, etag, lastUpdated).clone(),
+			);
 		} catch {
 			// ignore cache errors
 		}
 	}
 
-	return new Response(body, { status: 200, headers: buildHeaders(origin ?? null) });
+	const headers = buildHeaders(origin ?? null);
+	headers[LAST_UPDATED_HEADER] = lastUpdated;
+	return new Response(body, { status: 200, headers });
 }

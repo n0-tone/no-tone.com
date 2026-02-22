@@ -1,6 +1,7 @@
 import type { MiddlewareHandler } from 'astro';
 
 const CSP_HEADER = 'Content-Security-Policy';
+const CSP_REPORT_PATH = '/api/csp-report';
 
 const generateNonce = (): string => {
 	try {
@@ -25,6 +26,7 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 
 	const url = new URL(context.request.url);
 	const isLocalDev = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+	const cspReportUrl = new URL(CSP_REPORT_PATH, url).toString();
 
 	// Baseline security headers
 	response.headers.set('X-Content-Type-Options', 'nosniff');
@@ -37,7 +39,12 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 	);
 	response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
 	response.headers.set('Cross-Origin-Resource-Policy', 'same-origin');
+	response.headers.set(
+		'Cross-Origin-Embedder-Policy-Report-Only',
+		'require-corp; report-to="csp"',
+	);
 	response.headers.set('X-Frame-Options', 'DENY');
+	response.headers.set('Reporting-Endpoints', `csp="${cspReportUrl}"`);
 	if (!isLocalDev) {
 		response.headers.set(
 			'Strict-Transport-Security',
@@ -64,6 +71,8 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 		"base-uri 'none'",
 		"form-action 'self'",
 		"object-src 'none'",
+		`report-uri ${CSP_REPORT_PATH}`,
+		'report-to csp',
 	];
 
 	// Avoid breaking local HTTP dev by upgrading.

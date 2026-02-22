@@ -25,6 +25,7 @@ const cspNonce = Astro.locals.cspNonce;
         <div class="projects__header">
           <h1 class="projects__title">projects/</h1>
           <p class="projects__subtitle">Search + filter my GitHub repos.</p>
+          <p class="projects__status" id="status" aria-live="polite"></p>
         </div>
 
         <form
@@ -92,6 +93,7 @@ const cspNonce = Astro.locals.cspNonce;
         const $ = (sel) => document.querySelector(sel);
         const listEl = $("#list");
         const metaEl = $("#meta");
+        const statusEl = $("#status");
         const qEl = $("#q");
         const langEl = $("#lang");
         const pagesEl = $("#pages");
@@ -102,6 +104,7 @@ const cspNonce = Astro.locals.cspNonce;
         if (
           !listEl ||
           !metaEl ||
+          !statusEl ||
           !qEl ||
           !langEl ||
           !pagesEl ||
@@ -118,6 +121,11 @@ const cspNonce = Astro.locals.cspNonce;
             .trim();
 
         const lc = (value) => String(value || "").toLowerCase();
+        const dateFmt = new Intl.DateTimeFormat(undefined, {
+          year: "numeric",
+          month: "short",
+          day: "2-digit",
+        });
         const span = (className, text) => {
           const el = document.createElement("span");
           el.className = className;
@@ -313,9 +321,15 @@ const cspNonce = Astro.locals.cspNonce;
         const load = async () => {
           listEl.textContent = "loading…";
           metaEl.textContent = "";
+          statusEl.textContent = "";
 
           try {
             const res = await fetch(apiUrl);
+            const lastUpdated = res.headers.get("x-no-tone-last-updated");
+            const parsedUpdated = lastUpdated ? Date.parse(lastUpdated) : NaN;
+            if (Number.isFinite(parsedUpdated)) {
+              statusEl.textContent = `last updated: ${dateFmt.format(parsedUpdated)}`;
+            }
             const data = await res.json();
             const raw = Array.isArray(data) ? data : [];
             state.repos = raw.map((repo) => {

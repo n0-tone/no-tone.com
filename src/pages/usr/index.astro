@@ -502,17 +502,28 @@ const cspNonce = Astro.locals.cspNonce;
           if (!scopeAttr || !el || !(el instanceof Element)) return;
           el.setAttribute(scopeAttr.name, scopeAttr.value ?? "");
         };
+        let dynamicFolderId = 0;
+
+        const getParts = (item) => {
+          const children = item.querySelector(":scope > .tree__children");
+          const label = item.querySelector(":scope > .tree__label");
+          const chevron = item.querySelector(
+            ":scope > .tree__label > .tree__chevron",
+          );
+          if (!children || !label || !chevron) return null;
+          return { children, label, chevron };
+        };
 
         const toggleFolder = (item) => {
-          const children = item.querySelector(".tree__children");
-          const label = item.querySelector(".tree__label");
-          const chevron = item.querySelector(".tree__chevron");
-          if (!children || !label || !chevron) return;
+          const parts = getParts(item);
+          if (!parts) return;
+          const { children, label, chevron } = parts;
 
           const isOpen = !children.hidden;
           children.hidden = isOpen;
           item.classList.toggle("is-open", !isOpen);
           chevron.textContent = !isOpen ? "⌄" : "›";
+          label.setAttribute("aria-expanded", String(!isOpen));
         };
 
         const hydrateJobs = (container) => {
@@ -581,7 +592,10 @@ const cspNonce = Astro.locals.cspNonce;
             const details = document.createElement("ul");
             details.className = "tree__children";
             details.hidden = true;
+            details.id = `tree-children-dynamic-${dynamicFolderId++}`;
             applyScope(details);
+            jobButton.setAttribute("aria-expanded", "false");
+            jobButton.setAttribute("aria-controls", details.id);
 
             // Title (role)
             const titleLi = document.createElement("li");
@@ -677,7 +691,10 @@ const cspNonce = Astro.locals.cspNonce;
             const details = document.createElement("ul");
             details.className = "tree__children";
             details.hidden = true;
+            details.id = `tree-children-dynamic-${dynamicFolderId++}`;
             applyScope(details);
+            eduButton.setAttribute("aria-expanded", "false");
+            eduButton.setAttribute("aria-controls", details.id);
 
             const titleLi = document.createElement("li");
             titleLi.className = "tree__item tree__item--file edu-title";
@@ -721,6 +738,17 @@ const cspNonce = Astro.locals.cspNonce;
           hydrateEducation(educationContainer);
         }
 
+        const folders = root.querySelectorAll(".tree__item--folder");
+        folders.forEach((item, index) => {
+          if (!(item instanceof HTMLElement)) return;
+          const parts = getParts(item);
+          if (!parts) return;
+          const { children, label } = parts;
+          if (!children.id) children.id = `tree-children-${index}`;
+          label.setAttribute("aria-expanded", String(!children.hidden));
+          label.setAttribute("aria-controls", children.id);
+        });
+
         root.addEventListener("click", (event) => {
           const target = event.target;
           if (!(target instanceof Element)) return;
@@ -738,6 +766,42 @@ const cspNonce = Astro.locals.cspNonce;
           }
 
           toggleFolder(item);
+        });
+
+        root.addEventListener("keydown", (event) => {
+          const target = event.target;
+          if (!(target instanceof Element)) return;
+          const label = target.closest(".tree__label");
+          if (!label) return;
+          const item = label.closest(".tree__item--folder");
+          if (!(item instanceof HTMLElement)) return;
+          const parts = getParts(item);
+          if (!parts) return;
+
+          if (event.key === "ArrowRight") {
+            if (parts.children.hidden) toggleFolder(item);
+            event.preventDefault();
+            return;
+          }
+
+          if (event.key === "ArrowLeft") {
+            if (!parts.children.hidden) {
+              toggleFolder(item);
+              event.preventDefault();
+              return;
+            }
+
+            const parentItem = item.parentElement?.closest(
+              ".tree__item--folder",
+            );
+            const parentLabel = parentItem?.querySelector(
+              ":scope > .tree__label",
+            );
+            if (parentLabel instanceof HTMLElement) {
+              parentLabel.focus();
+              event.preventDefault();
+            }
+          }
         });
       })();
     </script>
