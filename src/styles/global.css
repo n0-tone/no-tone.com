@@ -443,6 +443,8 @@ hr {
   padding: 14px 14px;
   border: 1px solid var(--border);
   cursor: pointer;
+  content-visibility: auto;
+  contain-intrinsic-size: 220px;
   transform: translateY(0);
   transition:
     border-color 120ms ease,

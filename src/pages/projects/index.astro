@@ -139,6 +139,7 @@ const cspNonce = Astro.locals.cspNonce;
         const state = {
           repos: [],
         };
+        let renderDebounceId;
 
         const getFilters = () => {
           const q = normalize(qEl.value);
@@ -161,19 +162,19 @@ const cspNonce = Astro.locals.cspNonce;
         const render = () => {
           const { q, lang, pages, hasWebsite, sort } = getFilters();
 
-          let filtered = state.repos.slice();
-          // Always exclude forks
-          filtered = filtered.filter((r) => !r.isFork);
-          if (hasWebsite) filtered = filtered.filter((r) => r.__hasWebsite);
-          if (lang) filtered = filtered.filter((r) => r.language === lang);
-          if (pages) filtered = filtered.filter((r) => r.__hasPages);
-          if (q) {
-            filtered = filtered.filter((r) =>
-              String(r.__search || "").includes(q),
-            );
+          const filtered = [];
+          for (const repo of state.repos) {
+            if (repo.isFork) continue;
+            if (hasWebsite && !repo.__hasWebsite) continue;
+            if (lang && repo.language !== lang) continue;
+            if (pages && !repo.__hasPages) continue;
+            if (q && !repo.__search.includes(q)) continue;
+            filtered.push(repo);
           }
 
-          filtered.sort((a, b) => compare(a, b, sort));
+          if (filtered.length > 1) {
+            filtered.sort((a, b) => compare(a, b, sort));
+          }
 
           metaEl.textContent = `${filtered.length}/${state.repos.length}`;
           listEl.replaceChildren();
@@ -275,8 +276,13 @@ const cspNonce = Astro.locals.cspNonce;
         };
 
         const bind = () => {
+          const queueRender = () => {
+            clearTimeout(renderDebounceId);
+            renderDebounceId = setTimeout(render, 90);
+          };
+
           const onChange = () => render();
-          qEl.addEventListener("input", onChange);
+          qEl.addEventListener("input", queueRender);
           langEl.addEventListener("change", onChange);
           pagesEl.addEventListener("change", onChange);
           hasWebsiteEl.addEventListener("change", onChange);

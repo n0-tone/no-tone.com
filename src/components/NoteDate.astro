@@ -47,7 +47,26 @@ const { nonce, ariaLabel = "Current local time" } = Astro.props;
       el.textContent = `${month} ${day} ${year} ${h}:${m}:${s}`;
     };
 
-    tick();
-    setInterval(tick, 1000);
+    let intervalId = 0;
+
+    const start = () => {
+      if (intervalId) return;
+      tick();
+      intervalId = window.setInterval(tick, 1000);
+    };
+
+    const stop = () => {
+      if (!intervalId) return;
+      window.clearInterval(intervalId);
+      intervalId = 0;
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") start();
+      else stop();
+    };
+
+    document.addEventListener("visibilitychange", onVisibility);
+    start();
   })();
 </script>
