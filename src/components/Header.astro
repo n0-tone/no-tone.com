@@ -30,43 +30,32 @@ const cspNonce = Astro.locals.cspNonce;
 
 <script is:inline nonce={cspNonce}>
   (() => {
-    const STORAGE_KEY = "theme";
-
     const toggle = document.querySelector(".topbar__toggle");
     const icon = document.querySelector(".topbar__toggleIcon");
     const back = document.querySelector(".topbar__back");
     if (!toggle || !icon) return;
 
+    const noTone = window.noTone;
+    if (
+      !noTone?.readTheme ||
+      !noTone?.applyTheme ||
+      !noTone?.getStoredTheme ||
+      !noTone?.setStoredTheme
+    ) {
+      return;
+    }
+
     const apply = (theme) => {
-      document.documentElement.dataset.theme = theme;
+      noTone.applyTheme(theme);
       icon.textContent = theme === "dark" ? "☾" : "☀︎";
     };
 
-    const getStoredTheme = () => {
-      try {
-        const value = localStorage.getItem(STORAGE_KEY);
-        return value === "light" || value === "dark" ? value : null;
-      } catch {
-        return null;
-      }
-    };
-
-    const setStoredTheme = (theme) => {
-      try {
-        localStorage.setItem(STORAGE_KEY, theme);
-      } catch {
-        // no-op
-      }
-    };
-
     const syncFromStorage = () => {
-      const stored = getStoredTheme();
-      const fallback =
-        document.documentElement.dataset.theme === "dark" ? "dark" : "light";
-      const theme = stored ?? fallback ?? "dark";
+      const stored = noTone.getStoredTheme();
+      const theme = noTone.readTheme();
       apply(theme);
       if (!stored) {
-        setStoredTheme(theme);
+        noTone.setStoredTheme(theme);
       }
     };
 
@@ -80,7 +69,7 @@ const cspNonce = Astro.locals.cspNonce;
 
     // Sync across tabs/windows if theme changes elsewhere
     window.addEventListener("storage", (event) => {
-      if (event.key === STORAGE_KEY) {
+      if (event.key === "theme") {
         syncFromStorage();
       }
     });
@@ -90,7 +79,7 @@ const cspNonce = Astro.locals.cspNonce;
         document.documentElement.dataset.theme === "dark" ? "dark" : "light";
       const next = current === "dark" ? "light" : "dark";
       apply(next);
-      setStoredTheme(next);
+      noTone.setStoredTheme(next);
     });
 
     if (back && !back.hidden) {

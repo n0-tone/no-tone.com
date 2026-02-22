@@ -455,6 +455,18 @@ hr {
   transform: translateY(-1px);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .projectCard {
+    transition: border-color 120ms ease;
+    transform: none;
+  }
+
+  .projectCard:hover,
+  .projectCard:focus-visible {
+    transform: none;
+  }
+}
+
 .projectCard__title {
   font-size: 18px;
   color: var(--fg-strong);

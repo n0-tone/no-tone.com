@@ -149,16 +149,6 @@ const cspNonce = Astro.locals.cspNonce;
           return { q, lang, pages, hasWebsite, sort };
         };
 
-        const matchesQuery = (repo, q) => {
-          if (!q) return true;
-          return String(repo.__search || "").includes(q);
-        };
-
-        const hasGithubPages = (repo) => {
-          const topics = Array.isArray(repo.topics) ? repo.topics : [];
-          return repo.hasPages === true || topics.includes("github-pages");
-        };
-
         const compare = (a, b, sort) => {
           if (sort === "stars") return (b.stars || 0) - (a.stars || 0);
           if (sort === "name")
@@ -177,7 +167,11 @@ const cspNonce = Astro.locals.cspNonce;
           if (hasWebsite) filtered = filtered.filter((r) => r.__hasWebsite);
           if (lang) filtered = filtered.filter((r) => r.language === lang);
           if (pages) filtered = filtered.filter((r) => r.__hasPages);
-          if (q) filtered = filtered.filter((r) => matchesQuery(r, q));
+          if (q) {
+            filtered = filtered.filter((r) =>
+              String(r.__search || "").includes(q),
+            );
+          }
 
           filtered.sort((a, b) => compare(a, b, sort));
 
@@ -288,22 +282,24 @@ const cspNonce = Astro.locals.cspNonce;
           hasWebsiteEl.addEventListener("change", onChange);
           sortEl.addEventListener("change", onChange);
 
-          listEl.addEventListener("click", (event) => {
+          const getCardFromEvent = (event) => {
             const target = event.target;
-            if (!(target instanceof Element)) return;
-            if (target.closest("a")) return;
+            if (!(target instanceof Element)) return null;
+            if (target.closest("a")) return null;
             const card = target.closest(".projectCard");
-            if (!(card instanceof HTMLElement)) return;
+            return card instanceof HTMLElement ? card : null;
+          };
+
+          listEl.addEventListener("click", (event) => {
+            const card = getCardFromEvent(event);
+            if (!card) return;
             noTone.openExternal(card.dataset.repoUrl);
           });
 
           listEl.addEventListener("keydown", (event) => {
             if (event.key !== "Enter" && event.key !== " ") return;
-            const target = event.target;
-            if (!(target instanceof Element)) return;
-            if (target.closest("a")) return;
-            const card = target.closest(".projectCard");
-            if (!(card instanceof HTMLElement)) return;
+            const card = getCardFromEvent(event);
+            if (!card) return;
             event.preventDefault();
             noTone.openExternal(card.dataset.repoUrl);
           });
@@ -327,9 +323,16 @@ const cspNonce = Astro.locals.cspNonce;
             const res = await fetch(apiUrl);
             const lastUpdated = res.headers.get("x-no-tone-last-updated");
             const parsedUpdated = lastUpdated ? Date.parse(lastUpdated) : NaN;
+            const rlRemaining = res.headers.get("x-ratelimit-remaining");
+            const rlLimit = res.headers.get("x-ratelimit-limit");
+            const statusBits = [];
             if (Number.isFinite(parsedUpdated)) {
-              statusEl.textContent = `last updated: ${dateFmt.format(parsedUpdated)}`;
+              statusBits.push(`last updated: ${dateFmt.format(parsedUpdated)}`);
             }
+            if (rlRemaining && rlLimit) {
+              statusBits.push(`rate limit: ${rlRemaining}/${rlLimit}`);
+            }
+            statusEl.textContent = statusBits.join(" · ");
             const data = await res.json();
             const raw = Array.isArray(data) ? data : [];
             state.repos = raw.map((repo) => {

@@ -1,4 +1,5 @@
 import type { APIContext } from 'astro';
+import { getClientIp } from '../../utils/request';
 
 const GITHUB_API_URL =
 	'https://api.github.com/users/n0-tone/repos?per_page=100&sort=updated';
@@ -8,6 +9,7 @@ const CACHED_AT_HEADER = 'x-no-tone-cached-at';
 const LAST_UPDATED_HEADER = 'x-no-tone-last-updated';
 const RATE_LIMIT_MAX = 90;
 const RATE_LIMIT_WINDOW_MS = 60_000;
+const ALLOW_METHODS = 'GET';
 
 interface GithubRepo {
 	name?: string;
@@ -39,6 +41,12 @@ interface SimplifiedRepo {
 }
 
 type RateLimitEntry = { count: number; resetAt: number };
+type RateLimitState = {
+	limit: number;
+	remaining: number;
+	resetAt: number;
+	blocked: boolean;
+};
 
 const rateLimitStore: Map<string, RateLimitEntry> =
 	(globalThis as any).__noToneProjectRateLimit ??
@@ -83,23 +91,60 @@ const buildHeaders = (origin: string | null) => {
 	return headers;
 };
 
-const getClientIp = (request: Request): string => {
-	const cfIp = request.headers.get('CF-Connecting-IP');
-	if (cfIp) return cfIp;
-	const xff = request.headers.get('X-Forwarded-For');
-	if (!xff) return 'unknown';
-	return xff.split(',')[0]?.trim() || 'unknown';
-};
-
-const isRateLimited = (request: Request, nowMs: number): boolean => {
+const readRateLimit = (request: Request, nowMs: number): RateLimitState => {
 	const ip = getClientIp(request);
 	const current = rateLimitStore.get(ip);
 	if (!current || current.resetAt <= nowMs) {
-		rateLimitStore.set(ip, { count: 1, resetAt: nowMs + RATE_LIMIT_WINDOW_MS });
-		return false;
+		const next = { count: 1, resetAt: nowMs + RATE_LIMIT_WINDOW_MS };
+		rateLimitStore.set(ip, next);
+		return {
+			limit: RATE_LIMIT_MAX,
+			remaining: RATE_LIMIT_MAX - 1,
+			resetAt: next.resetAt,
+			blocked: false,
+		};
 	}
 	current.count += 1;
-	return current.count > RATE_LIMIT_MAX;
+	const blocked = current.count > RATE_LIMIT_MAX;
+	const remaining = blocked ? 0 : Math.max(0, RATE_LIMIT_MAX - current.count);
+	return {
+		limit: RATE_LIMIT_MAX,
+		remaining,
+		resetAt: current.resetAt,
+		blocked,
+	};
+};
+
+const attachRateLimitHeaders = (
+	headers: Record<string, string>,
+	rate: RateLimitState,
+): void => {
+	headers['X-RateLimit-Limit'] = String(rate.limit);
+	headers['X-RateLimit-Remaining'] = String(rate.remaining);
+	headers['X-RateLimit-Reset'] = String(Math.ceil(rate.resetAt / 1000));
+};
+
+const buildHeadersWithRate = (
+	origin: string | null,
+	rate: RateLimitState,
+	extra?: Record<string, string>,
+): Record<string, string> => {
+	const headers = { ...buildHeaders(origin), ...(extra ?? {}) };
+	attachRateLimitHeaders(headers, rate);
+	return headers;
+};
+
+const jsonError = (
+	status: number,
+	error: string,
+	origin: string | null,
+	rate: RateLimitState,
+	extra?: Record<string, string>,
+): Response => {
+	return new Response(JSON.stringify({ error }), {
+		status,
+		headers: buildHeadersWithRate(origin, rate, extra),
+	});
 };
 
 const getLastUpdatedAt = (repos: SimplifiedRepo[]): string => {
@@ -123,13 +168,24 @@ const isFresh = (cachedAtMs: number, nowMs: number): boolean => {
 	return nowMs - cachedAtMs < EDGE_TTL_SECONDS * 1000;
 };
 
-const responseFromCached = (cached: Response, origin: string | null): Response => {
+const responseFromCached = (
+	cached: Response,
+	origin: string | null,
+	rate: RateLimitState,
+): Response => {
 	const etag = cached.headers.get('ETag');
 	const lastUpdated = cached.headers.get(LAST_UPDATED_HEADER);
-	const headers = buildHeaders(origin);
+	const headers = buildHeadersWithRate(origin, rate);
 	if (etag) headers['ETag'] = etag;
 	if (lastUpdated) headers[LAST_UPDATED_HEADER] = lastUpdated;
 	return new Response(cached.body, { status: 200, headers });
+};
+
+const methodNotAllowed = (
+	origin: string | null,
+	rate: RateLimitState,
+): Response => {
+	return jsonError(405, 'Method Not Allowed', origin, rate, { Allow: ALLOW_METHODS });
 };
 
 const toCachedResponse = (
@@ -151,32 +207,24 @@ export async function GET(context: APIContext): Promise<Response> {
 	const siteOrigin = context.url.origin;
 	const origin = request.headers.get('Origin');
 	const secFetchSite = request.headers.get('Sec-Fetch-Site');
+	const nowMs = Date.now();
+	const rate = readRateLimit(request, nowMs);
 
 	// Basic origin check: allow same-origin requests and non-CORS requests (like server-to-server or direct curl)
 	if (origin && origin !== siteOrigin) {
-		return new Response(JSON.stringify({ error: 'Forbidden' }), {
-			status: 403,
-			headers: buildHeaders(null),
-		});
+		return jsonError(403, 'Forbidden', null, rate);
 	}
 
 	if (secFetchSite && secFetchSite === 'cross-site') {
-		return new Response(JSON.stringify({ error: 'Forbidden' }), {
-			status: 403,
-			headers: buildHeaders(origin ?? null),
-		});
+		return jsonError(403, 'Forbidden', origin ?? null, rate);
 	}
 
-	if (isRateLimited(request, Date.now())) {
-		return new Response(JSON.stringify({ error: 'Too Many Requests' }), {
-			status: 429,
-			headers: buildHeaders(origin ?? null),
-		});
+	if (rate.blocked) {
+		return jsonError(429, 'Too Many Requests', origin ?? null, rate);
 	}
 
 	const cache = (globalThis as any).caches?.default as Cache | undefined;
 	const cacheKey = new Request(GITHUB_API_URL);
-	const nowMs = Date.now();
 	let cached: Response | undefined;
 	const waitUntil = (context.locals as any)?.runtime?.ctx?.waitUntil as
 		| ((promise: Promise<unknown>) => void)
@@ -186,7 +234,7 @@ export async function GET(context: APIContext): Promise<Response> {
 	if (cache) {
 		cached = (await cache.match(cacheKey)) ?? undefined;
 		if (cached && isFresh(readCachedAtMs(cached), nowMs)) {
-			return responseFromCached(cached, origin ?? null);
+			return responseFromCached(cached, origin ?? null, rate);
 		}
 		if (cached) {
 			const cachedRes = cached;
@@ -228,7 +276,7 @@ export async function GET(context: APIContext): Promise<Response> {
 
 			// Stale-while-revalidate: serve cached immediately and refresh in background
 			if (waitUntil) waitUntil(revalidate());
-			return responseFromCached(cached, origin ?? null);
+			return responseFromCached(cached, origin ?? null, rate);
 		}
 	}
 
@@ -255,17 +303,19 @@ export async function GET(context: APIContext): Promise<Response> {
 				// ignore cache errors
 			}
 		}
-		const headers = buildHeaders(origin ?? null);
-		headers[LAST_UPDATED_HEADER] = lastUpdated;
+		const headers = buildHeadersWithRate(origin ?? null, rate, {
+			[LAST_UPDATED_HEADER]: lastUpdated,
+		});
 		return new Response(body, { status: 200, headers });
 	}
 
 	if (!upstream.ok) {
 		// If we have anything cached (even stale), serve it.
-		if (cached) return responseFromCached(cached, origin ?? null);
+		if (cached) return responseFromCached(cached, origin ?? null, rate);
+		const headers = buildHeadersWithRate(origin ?? null, rate);
 		return new Response(JSON.stringify([]), {
 			status: 200,
-			headers: buildHeaders(origin ?? null),
+			headers,
 		});
 	}
 
@@ -287,7 +337,21 @@ export async function GET(context: APIContext): Promise<Response> {
 		}
 	}
 
-	const headers = buildHeaders(origin ?? null);
-	headers[LAST_UPDATED_HEADER] = lastUpdated;
+	const headers = buildHeadersWithRate(origin ?? null, rate, {
+		[LAST_UPDATED_HEADER]: lastUpdated,
+	});
 	return new Response(body, { status: 200, headers });
 }
+
+const methodNotAllowedHandler = (context: APIContext): Response =>
+	methodNotAllowed(
+		context.request.headers.get('Origin'),
+		readRateLimit(context.request, Date.now()),
+	);
+
+export const POST = methodNotAllowedHandler;
+export const PUT = methodNotAllowedHandler;
+export const PATCH = methodNotAllowedHandler;
+export const DELETE = methodNotAllowedHandler;
+export const HEAD = methodNotAllowedHandler;
+export const OPTIONS = methodNotAllowedHandler;

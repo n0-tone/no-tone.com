@@ -2,24 +2,25 @@ import rss from "@astrojs/rss";
 import { SITE_TITLE, SITE_DESCRIPTION } from "../consts";
 
 export async function GET(context) {
+  const now = new Date();
   const pages = [
     {
       title: "projects",
       description: "Projects page",
       link: "/projects/",
-      pubDate: new Date(),
+      pubDate: now,
     },
     {
       title: "tldr",
       description: "TLDR page",
       link: "/tldr/",
-      pubDate: new Date(),
+      pubDate: now,
     },
     {
       title: "usr",
       description: "Usr page",
       link: "/usr/",
-      pubDate: new Date(),
+      pubDate: now,
     },
   ];
   return rss({

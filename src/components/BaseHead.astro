@@ -60,6 +60,32 @@ const canonicalURL = Astro.site
 <script is:inline nonce={cspNonce}>
   (() => {
     const root = (window.noTone ??= {});
+    const THEME_KEY = "theme";
+
+    root.getStoredTheme = () => {
+      try {
+        const value = localStorage.getItem(THEME_KEY);
+        return value === "light" || value === "dark" ? value : null;
+      } catch {
+        return null;
+      }
+    };
+
+    root.setStoredTheme = (theme) => {
+      try {
+        localStorage.setItem(THEME_KEY, theme);
+      } catch {
+        // no-op
+      }
+    };
+
+    root.readTheme = () =>
+      root.getStoredTheme() ??
+      (document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+
+    root.applyTheme = (theme) => {
+      document.documentElement.dataset.theme = theme;
+    };
 
     root.isSafeExternalUrl = (value) => {
       try {

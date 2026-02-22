@@ -526,10 +526,56 @@ const cspNonce = Astro.locals.cspNonce;
           label.setAttribute("aria-expanded", String(!isOpen));
         };
 
-        const hydrateJobs = (container) => {
+        const createScopedEl = (tag, className, text) => {
+          const el = document.createElement(tag);
+          if (className) el.className = className;
+          if (text !== undefined) el.textContent = text;
+          applyScope(el);
+          return el;
+        };
+
+        const appendFileLine = (container, className, text) => {
+          const li = createScopedEl(
+            "li",
+            `tree__item tree__item--file ${className}`,
+            text,
+          );
+          container.appendChild(li);
+        };
+
+        const createFolderEntry = (name) => {
+          const item = createScopedEl("li", "tree__item tree__item--folder");
+          const button = createScopedEl("button", "tree__label");
+          button.type = "button";
+
+          const chevron = createScopedEl("span", "tree__chevron", "›");
+          const nameSpan = createScopedEl("span", "tree__name", name);
+          button.appendChild(chevron);
+          button.appendChild(nameSpan);
+
+          const details = createScopedEl("ul", "tree__children");
+          details.hidden = true;
+          details.id = `tree-children-dynamic-${dynamicFolderId++}`;
+          button.setAttribute("aria-expanded", "false");
+          button.setAttribute("aria-controls", details.id);
+
+          item.appendChild(button);
+          item.appendChild(details);
+          return { item, details };
+        };
+
+        const hydrateEntries = (container, entries, fillDetails) => {
           if (!container || container.dataset.loaded === "true") return;
           container.dataset.loaded = "true";
 
+          entries.forEach((entry) => {
+            const { item, details } = createFolderEntry(entry.name);
+            fillDetails(details, entry);
+            container.appendChild(item);
+          });
+        };
+
+        const hydrateJobs = (container) => {
           const jobs = [
             {
               name: "app-making-job/",
@@ -566,84 +612,22 @@ const cspNonce = Astro.locals.cspNonce;
             },
           ];
 
-          jobs.forEach((job) => {
-            const jobItem = document.createElement("li");
-            jobItem.className = "tree__item tree__item--folder";
-            applyScope(jobItem);
-
-            const jobButton = document.createElement("button");
-            jobButton.type = "button";
-            jobButton.className = "tree__label";
-            applyScope(jobButton);
-
-            const jobChevron = document.createElement("span");
-            jobChevron.className = "tree__chevron";
-            jobChevron.textContent = "›";
-            applyScope(jobChevron);
-
-            const jobNameSpan = document.createElement("span");
-            jobNameSpan.className = "tree__name";
-            jobNameSpan.textContent = job.name;
-            applyScope(jobNameSpan);
-
-            jobButton.appendChild(jobChevron);
-            jobButton.appendChild(jobNameSpan);
-
-            const details = document.createElement("ul");
-            details.className = "tree__children";
-            details.hidden = true;
-            details.id = `tree-children-dynamic-${dynamicFolderId++}`;
-            applyScope(details);
-            jobButton.setAttribute("aria-expanded", "false");
-            jobButton.setAttribute("aria-controls", details.id);
-
-            // Title (role)
-            const titleLi = document.createElement("li");
-            titleLi.className = "tree__item tree__item--file job-title";
-            applyScope(titleLi);
-            titleLi.textContent = job.title;
-            details.appendChild(titleLi);
-
-            // Description
-            const descLi = document.createElement("li");
-            descLi.className = "tree__item tree__item--file job-description";
-            applyScope(descLi);
-            descLi.textContent = job.description;
-            details.appendChild(descLi);
-
-            // Bullet points
+          hydrateEntries(container, jobs, (details, job) => {
+            appendFileLine(details, "job-title", job.title);
+            appendFileLine(details, "job-description", job.description);
             job.bullets.forEach((bullet) => {
-              const bulletLi = document.createElement("li");
-              bulletLi.className = "tree__item tree__item--file job-bullet";
-              applyScope(bulletLi);
-              bulletLi.textContent = `• ${bullet}`;
-              details.appendChild(bulletLi);
+              appendFileLine(details, "job-bullet", `• ${bullet}`);
             });
-
-            // Work type
-            const workTypeLi = document.createElement("li");
-            workTypeLi.className = "tree__item tree__item--file job-meta";
-            applyScope(workTypeLi);
-            workTypeLi.textContent = `work: ${String(job.workType).toLowerCase()}`;
-            details.appendChild(workTypeLi);
-
-            // Duration
-            const durationLi = document.createElement("li");
-            durationLi.className = "tree__item tree__item--file job-meta";
-            applyScope(durationLi);
-            durationLi.textContent = `duration: ${job.duration}`;
-            details.appendChild(durationLi);
-
-            jobItem.appendChild(jobButton);
-            jobItem.appendChild(details);
-            container.appendChild(jobItem);
+            appendFileLine(
+              details,
+              "job-meta",
+              `work: ${String(job.workType).toLowerCase()}`,
+            );
+            appendFileLine(details, "job-meta", `duration: ${job.duration}`);
           });
         };
 
         const hydrateEducation = (container) => {
-          if (!container || container.dataset.loaded === "true") return;
-          container.dataset.loaded = "true";
-
           const education = [
             {
               name: "masters-software-engineering/",
@@ -665,60 +649,12 @@ const cspNonce = Astro.locals.cspNonce;
             },
           ];
 
-          education.forEach((edu) => {
-            const eduItem = document.createElement("li");
-            eduItem.className = "tree__item tree__item--folder";
-            applyScope(eduItem);
-
-            const eduButton = document.createElement("button");
-            eduButton.type = "button";
-            eduButton.className = "tree__label";
-            applyScope(eduButton);
-
-            const eduChevron = document.createElement("span");
-            eduChevron.className = "tree__chevron";
-            eduChevron.textContent = "›";
-            applyScope(eduChevron);
-
-            const eduNameSpan = document.createElement("span");
-            eduNameSpan.className = "tree__name";
-            eduNameSpan.textContent = edu.name;
-            applyScope(eduNameSpan);
-
-            eduButton.appendChild(eduChevron);
-            eduButton.appendChild(eduNameSpan);
-
-            const details = document.createElement("ul");
-            details.className = "tree__children";
-            details.hidden = true;
-            details.id = `tree-children-dynamic-${dynamicFolderId++}`;
-            applyScope(details);
-            eduButton.setAttribute("aria-expanded", "false");
-            eduButton.setAttribute("aria-controls", details.id);
-
-            const titleLi = document.createElement("li");
-            titleLi.className = "tree__item tree__item--file edu-title";
-            applyScope(titleLi);
-            titleLi.textContent = edu.title;
-            details.appendChild(titleLi);
-
-            const periodLi = document.createElement("li");
-            periodLi.className = "tree__item tree__item--file edu-meta";
-            applyScope(periodLi);
-            periodLi.textContent = `period: ${edu.period}`;
-            details.appendChild(periodLi);
-
+          hydrateEntries(container, education, (details, edu) => {
+            appendFileLine(details, "edu-title", edu.title);
+            appendFileLine(details, "edu-meta", `period: ${edu.period}`);
             edu.highlights.forEach((h) => {
-              const hLi = document.createElement("li");
-              hLi.className = "tree__item tree__item--file edu-bullet";
-              applyScope(hLi);
-              hLi.textContent = `• ${h}`;
-              details.appendChild(hLi);
+              appendFileLine(details, "edu-bullet", `• ${h}`);
             });
-
-            eduItem.appendChild(eduButton);
-            eduItem.appendChild(details);
-            container.appendChild(eduItem);
           });
         };
 
@@ -757,7 +693,7 @@ const cspNonce = Astro.locals.cspNonce;
           const item = label.closest(".tree__item");
           if (!item) return;
 
-          const children = item.querySelector(".tree__children");
+          const children = getParts(item)?.children;
           if (children && children.dataset.kind === "jobs") {
             hydrateJobs(children);
           }

@@ -2,6 +2,14 @@ import type { MiddlewareHandler } from 'astro';
 
 const CSP_HEADER = 'Content-Security-Policy';
 const CSP_REPORT_PATH = '/api/csp-report';
+const PERMISSIONS_POLICY = [
+	"camera=()",
+	"microphone=()",
+	"geolocation=()",
+	"payment=()",
+	"usb=()",
+	"bluetooth=()",
+].join(', ');
 
 const generateNonce = (): string => {
 	try {
@@ -29,22 +37,19 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 	const cspReportUrl = new URL(CSP_REPORT_PATH, url).toString();
 
 	// Baseline security headers
-	response.headers.set('X-Content-Type-Options', 'nosniff');
-	response.headers.set('Referrer-Policy', 'no-referrer');
-	response.headers.set(
-		'Permissions-Policy',
-		["camera=()", "microphone=()", "geolocation=()", "payment=()", "usb=()", "bluetooth=()"].join(
-			', ',
-		),
-	);
-	response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
-	response.headers.set('Cross-Origin-Resource-Policy', 'same-origin');
-	response.headers.set(
-		'Cross-Origin-Embedder-Policy-Report-Only',
-		'require-corp; report-to="csp"',
-	);
-	response.headers.set('X-Frame-Options', 'DENY');
-	response.headers.set('Reporting-Endpoints', `csp="${cspReportUrl}"`);
+	const baseHeaders: Record<string, string> = {
+		'X-Content-Type-Options': 'nosniff',
+		'Referrer-Policy': 'no-referrer',
+		'Permissions-Policy': PERMISSIONS_POLICY,
+		'Cross-Origin-Opener-Policy': 'same-origin',
+		'Cross-Origin-Resource-Policy': 'same-origin',
+		'Cross-Origin-Embedder-Policy-Report-Only': 'require-corp; report-to="csp"',
+		'X-Frame-Options': 'DENY',
+		'Reporting-Endpoints': `csp="${cspReportUrl}"`,
+	};
+	for (const [name, value] of Object.entries(baseHeaders)) {
+		response.headers.set(name, value);
+	}
 	if (!isLocalDev) {
 		response.headers.set(
 			'Strict-Transport-Security',
@@ -78,9 +83,6 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 	// Avoid breaking local HTTP dev by upgrading.
 	if (!isLocalDev) {
 		directives.push('upgrade-insecure-requests');
-	}
-
-	if (!isLocalDev) {
 		directives.push("trusted-types default");
 		directives.push("require-trusted-types-for 'script'");
 	}
