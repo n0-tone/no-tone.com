@@ -208,6 +208,10 @@ const cspNonce = Astro.locals.cspNonce;
             const published = document.createElement("a");
             published.className = "projectCard__published";
             published.textContent = "published website";
+            published.setAttribute(
+              "aria-label",
+              `published website for ${repo.name}`,
+            );
             if (repo.__hasWebsite && homepage) {
               published.href = homepage;
               published.target = "_blank";
