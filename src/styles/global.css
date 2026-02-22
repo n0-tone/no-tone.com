@@ -15,6 +15,7 @@
   --chrome-fg: #010001;
   --desktop-label: #010001;
   --desktop-border: #010001;
+  --scrollbar: #000000;
 }
 
 html[data-theme="dark"] {
@@ -26,11 +27,29 @@ html[data-theme="dark"] {
   --chrome-fg: #ffffff;
   --desktop-label: #ffffff;
   --desktop-border: #ffffff;
+  --scrollbar: #ffffff;
 }
 
 html,
 body {
   height: 100%;
+}
+
+html {
+  scrollbar-color: var(--scrollbar) var(--bg);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--bg);
 }
 
 body {
