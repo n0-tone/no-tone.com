@@ -12,7 +12,7 @@
     "publish": true
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^12.6.12",
+    "@astrojs/cloudflare": "^12.6.5",
     "@astrojs/mdx": "^4.3.13",
     "@astrojs/rss": "^4.0.15",
     "@astrojs/sitemap": "^3.7.0",
@@ -20,7 +20,7 @@
     "typescript": "5.9.3"
   },
   "devDependencies": {
-    "wrangler": "^4.67.0"
+    "wrangler": "^4.68.0"
   },
   "private": true,
   "scripts": {
