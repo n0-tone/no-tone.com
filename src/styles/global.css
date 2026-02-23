@@ -407,6 +407,7 @@ hr {
   appearance: none;
   -webkit-appearance: none;
   margin: 0;
+  cursor: pointer;
   width: 1.05em;
   height: 1.05em;
   flex-shrink: 0;
@@ -452,6 +453,11 @@ hr {
   font: inherit;
   font-size: 16px;
   line-height: 1.2;
+}
+
+.projects__select,
+.projects__select option {
+  cursor: pointer;
 }
 
 .projects__input::placeholder {
