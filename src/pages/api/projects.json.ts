@@ -19,6 +19,7 @@ interface GithubRepo {
 	description?: string | null;
 	topics?: string[];
 	fork?: boolean;
+	forks_count?: number;
 	archived?: boolean;
 	has_pages?: boolean;
 	stargazers_count?: number;
@@ -37,6 +38,7 @@ interface SimplifiedRepo {
 	isArchived: boolean;
 	hasPages: boolean;
 	stars: number;
+	forks: number;
 	updatedAt: string;
 }
 
@@ -69,6 +71,7 @@ const simplifyRepos = (repos: unknown): SimplifiedRepo[] => {
 			hasPages: !!repo.has_pages,
 			stars:
 				typeof repo.stargazers_count === 'number' ? repo.stargazers_count : 0,
+			forks: typeof repo.forks_count === 'number' ? repo.forks_count : 0,
 			updatedAt: repo.updated_at ? String(repo.updated_at) : '',
 		}));
 };

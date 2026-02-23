@@ -62,6 +62,11 @@ const cspNonce = Astro.locals.cspNonce;
               <input id="hasWebsite" name="hasWebsite" type="checkbox" />
               <span class="projects__label">has website</span>
             </label>
+
+            <label class="projects__field projects__field--checkbox">
+              <input id="isFork" name="isFork" type="checkbox" />
+              <span class="projects__label">is fork</span>
+            </label>
           </div>
 
           <div class="projects__row">
@@ -70,7 +75,9 @@ const cspNonce = Astro.locals.cspNonce;
               <select class="projects__select" id="sort" name="sort">
                 <option value="updated">updated</option>
                 <option value="stars">stars</option>
-                <option value="name">name</option>
+                <option value="forks">forks</option>
+                <option value="name-asc">name a-z</option>
+                <option value="name-desc">name z-a</option>
               </select>
             </label>
 
@@ -98,6 +105,7 @@ const cspNonce = Astro.locals.cspNonce;
         const langEl = $("#lang");
         const pagesEl = $("#pages");
         const hasWebsiteEl = $("#hasWebsite");
+        const isForkEl = $("#isFork");
         const sortEl = $("#sort");
         const resetEl = $("#reset");
 
@@ -109,6 +117,7 @@ const cspNonce = Astro.locals.cspNonce;
           !langEl ||
           !pagesEl ||
           !hasWebsiteEl ||
+          !isForkEl ||
           !sortEl ||
           !resetEl
         ) {
@@ -146,25 +155,29 @@ const cspNonce = Astro.locals.cspNonce;
           const lang = String(langEl.value || "");
           const pages = !!pagesEl.checked;
           const hasWebsite = !!hasWebsiteEl.checked;
+          const isFork = !!isForkEl.checked;
           const sort = String(sortEl.value || "updated");
-          return { q, lang, pages, hasWebsite, sort };
+          return { q, lang, pages, hasWebsite, isFork, sort };
         };
 
         const compare = (a, b, sort) => {
           if (sort === "stars") return (b.stars || 0) - (a.stars || 0);
-          if (sort === "name")
+          if (sort === "forks") return (b.forks || 0) - (a.forks || 0);
+          if (sort === "name-asc")
             return String(a.name).localeCompare(String(b.name));
+          if (sort === "name-desc")
+            return String(b.name).localeCompare(String(a.name));
           const ad = a.updatedAt ? Date.parse(a.updatedAt) : 0;
           const bd = b.updatedAt ? Date.parse(b.updatedAt) : 0;
           return bd - ad;
         };
 
         const render = () => {
-          const { q, lang, pages, hasWebsite, sort } = getFilters();
+          const { q, lang, pages, hasWebsite, isFork, sort } = getFilters();
 
           const filtered = [];
           for (const repo of state.repos) {
-            if (repo.isFork) continue;
+            if (isFork && !repo.isFork) continue;
             if (hasWebsite && !repo.__hasWebsite) continue;
             if (lang && repo.language !== lang) continue;
             if (pages && !repo.__hasPages) continue;
@@ -232,7 +245,7 @@ const cspNonce = Astro.locals.cspNonce;
             right.className = "projectCard__metaRight";
             const bits = [];
             if (repo.stars) bits.push(`★ ${repo.stars}`);
-            if (repo.isFork) bits.push("fork");
+            if (repo.forks || repo.isFork) bits.push(`⑂ ${repo.forks || 0}`);
             if (repo.isArchived) bits.push("archived");
             if (repo.__hasPages) bits.push("pages");
             right.textContent = bits.join(" · ");
@@ -290,6 +303,7 @@ const cspNonce = Astro.locals.cspNonce;
           langEl.addEventListener("change", onChange);
           pagesEl.addEventListener("change", onChange);
           hasWebsiteEl.addEventListener("change", onChange);
+          isForkEl.addEventListener("change", onChange);
           sortEl.addEventListener("change", onChange);
 
           const getCardFromEvent = (event) => {
@@ -319,6 +333,7 @@ const cspNonce = Astro.locals.cspNonce;
             langEl.value = "";
             pagesEl.checked = false;
             hasWebsiteEl.checked = false;
+            isForkEl.checked = false;
             sortEl.value = "updated";
             render();
           });
