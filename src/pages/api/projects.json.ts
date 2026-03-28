@@ -228,218 +228,234 @@ export async function GET(context: APIContext): Promise<Response> {
 	const isLocalDev =
 		context.url.hostname === 'localhost' || context.url.hostname === '127.0.0.1';
 	const origin = request.headers.get('Origin');
-	const secFetchSite = request.headers.get('Sec-Fetch-Site');
-	const nowMs = Date.now();
+	try {
+		const secFetchSite = request.headers.get('Sec-Fetch-Site');
+		const nowMs = Date.now();
 
-	// Basic origin check: allow same-origin requests and non-CORS requests (like server-to-server or direct curl)
-	if (origin && origin !== siteOrigin) {
-		return new Response(JSON.stringify({ error: 'Forbidden' }), {
-			status: 403,
-			headers: buildHeaders(null),
-		});
-	}
-
-	if (secFetchSite && secFetchSite === 'cross-site') {
-		return new Response(JSON.stringify({ error: 'Forbidden' }), {
-			status: 403,
-			headers: buildHeaders(origin ?? null),
-		});
-	}
-
-	const cache = (globalThis as any).caches?.default as Cache | undefined;
-	const cacheKey = new Request(GITHUB_API_URL);
-	let cached: Response | undefined;
-	const waitUntil = (context.locals as any)?.cfContext?.waitUntil as
-		| ((promise: Promise<unknown>) => void)
-		| undefined;
-
-	// Try edge cache first
-	if (cache) {
-		cached = (await cache.match(cacheKey)) ?? undefined;
-		if (cached && isFresh(readCachedAtMs(cached), nowMs)) {
-			return responseFromCached(cached, origin ?? null, undefined, {
-				'X-No-Tone-Cache': 'hit',
+		// Basic origin check: allow same-origin requests and non-CORS requests (like server-to-server or direct curl)
+		if (origin && origin !== siteOrigin) {
+			return new Response(JSON.stringify({ error: 'Forbidden' }), {
+				status: 403,
+				headers: buildHeaders(null),
 			});
 		}
-	}
 
-	const rate = isLocalDev
-		? {
-				limit: RATE_LIMIT_MAX,
-				remaining: RATE_LIMIT_MAX,
-				resetAt: nowMs + RATE_LIMIT_WINDOW_MS,
-				blocked: false,
+		if (secFetchSite && secFetchSite === 'cross-site') {
+			return new Response(JSON.stringify({ error: 'Forbidden' }), {
+				status: 403,
+				headers: buildHeaders(origin ?? null),
+			});
+		}
+
+		const cache = (globalThis as any).caches?.default as Cache | undefined;
+		const cacheKey = new Request(GITHUB_API_URL);
+		let cached: Response | undefined;
+		const waitUntil = (context.locals as any)?.cfContext?.waitUntil as
+			| ((promise: Promise<unknown>) => void)
+			| undefined;
+
+		// Try edge cache first
+		if (cache) {
+			cached = (await cache.match(cacheKey)) ?? undefined;
+			if (cached && isFresh(readCachedAtMs(cached), nowMs)) {
+				return responseFromCached(cached, origin ?? null, undefined, {
+					'X-No-Tone-Cache': 'hit',
+				});
 			}
-		: await readRateLimit(request, nowMs, cache);
-	if (rate.blocked) {
-		return jsonError(429, 'Too Many Requests', origin ?? null, rate, {
-			'Retry-After': String(Math.max(1, Math.ceil((rate.resetAt - nowMs) / 1000))),
-		});
-	}
+		}
 
-	if (cache && cached) {
-		if (cached) {
-			const cachedRes = cached;
-			const cachedEtag = cached.headers.get('ETag');
-			const revalidate = async () => {
-				const upstreamStartedAt = Date.now();
-				try {
-					const upstream = await fetch(GITHUB_API_URL, {
-						headers: {
-							'User-Agent': 'no-tone-site',
-							'Accept': 'application/vnd.github.mercy-preview+json',
-							...(cachedEtag ? { 'If-None-Match': cachedEtag } : {}),
-						},
-					});
+		const rate = isLocalDev
+			? {
+					limit: RATE_LIMIT_MAX,
+					remaining: RATE_LIMIT_MAX,
+					resetAt: nowMs + RATE_LIMIT_WINDOW_MS,
+					blocked: false,
+				}
+			: await readRateLimit(request, nowMs, cache);
+		if (rate.blocked) {
+			return jsonError(429, 'Too Many Requests', origin ?? null, rate, {
+				'Retry-After': String(
+					Math.max(1, Math.ceil((rate.resetAt - nowMs) / 1000)),
+				),
+			});
+		}
 
-					if (upstream.status === 304) {
-						const body = await cachedRes.clone().text();
-						const lastUpdated = cachedRes.headers.get(LAST_UPDATED_HEADER) ?? '';
+		if (cache && cached) {
+			if (cached) {
+				const cachedRes = cached;
+				const cachedEtag = cached.headers.get('ETag');
+				const revalidate = async () => {
+					const upstreamStartedAt = Date.now();
+					try {
+						const upstream = await fetch(GITHUB_API_URL, {
+							headers: {
+								'User-Agent': 'no-tone-site',
+								'Accept': 'application/vnd.github.mercy-preview+json',
+								...(cachedEtag ? { 'If-None-Match': cachedEtag } : {}),
+							},
+						});
+
+						if (upstream.status === 304) {
+							const body = await cachedRes.clone().text();
+							const lastUpdated =
+								cachedRes.headers.get(LAST_UPDATED_HEADER) ?? '';
+							await cache.put(
+								cacheKey,
+								toCachedResponse(body, cachedEtag ?? null, lastUpdated),
+							);
+							return;
+						}
+
+						if (!upstream.ok) {
+							logProjectsApiIssue('background_revalidate_failed', {
+								status: upstream.status,
+								latencyMs: Date.now() - upstreamStartedAt,
+							});
+							return;
+						}
+
+						const raw = await upstream.json();
+						const simplified = simplifyRepos(raw);
+						const body = JSON.stringify(simplified);
+						const etag = upstream.headers.get('ETag');
 						await cache.put(
 							cacheKey,
-							toCachedResponse(body, cachedEtag ?? null, lastUpdated),
+							toCachedResponse(body, etag, getLastUpdatedAt(simplified)),
 						);
-						return;
-					}
-
-					if (!upstream.ok) {
-						logProjectsApiIssue('background_revalidate_failed', {
-							status: upstream.status,
+					} catch (error) {
+						logProjectsApiIssue('background_revalidate_threw', {
 							latencyMs: Date.now() - upstreamStartedAt,
+							error: error instanceof Error ? error.message : 'unknown-error',
 						});
-						return;
 					}
+				};
 
-					const raw = await upstream.json();
-					const simplified = simplifyRepos(raw);
-					const body = JSON.stringify(simplified);
-					const etag = upstream.headers.get('ETag');
-					await cache.put(
-						cacheKey,
-						toCachedResponse(body, etag, getLastUpdatedAt(simplified)),
-					);
-				} catch (error) {
-					logProjectsApiIssue('background_revalidate_threw', {
-						latencyMs: Date.now() - upstreamStartedAt,
-						error: error instanceof Error ? error.message : 'unknown-error',
-					});
+				// Stale-while-revalidate: serve cached immediately and refresh in background
+				if (waitUntil) waitUntil(revalidate());
+				return responseFromCached(cached, origin ?? null, rate, {
+					'X-No-Tone-Cache': 'stale',
+					Warning: '110 - "Response is stale"',
+				});
+			}
+		}
+
+		// Fetch from GitHub (optionally revalidate with ETag)
+		const cachedEtag = cached?.headers.get('ETag');
+		const upstreamStartedAt = Date.now();
+		let upstream: Response;
+		try {
+			upstream = await fetch(GITHUB_API_URL, {
+				headers: {
+					// GitHub requires a User-Agent
+					'User-Agent': 'no-tone-site',
+					'Accept': 'application/vnd.github.mercy-preview+json', // Needed for topics
+					...(cachedEtag ? { 'If-None-Match': cachedEtag } : {}),
+				},
+			});
+		} catch (error) {
+			logProjectsApiIssue('upstream_threw', {
+				latencyMs: Date.now() - upstreamStartedAt,
+				hasCachedResponse: !!cached,
+				error: error instanceof Error ? error.message : 'unknown-error',
+			});
+			if (cached) {
+				return responseFromCached(cached, origin ?? null, rate, {
+					'X-No-Tone-Cache': 'stale',
+					Warning: '110 - "Response is stale"',
+				});
+			}
+			return jsonError(
+				503,
+				'Projects are temporarily unavailable',
+				origin ?? null,
+				rate,
+				{
+					'Retry-After': String(BROWSER_TTL_SECONDS),
+				},
+			);
+		}
+
+		if (upstream.status === 304 && cached) {
+			// Not modified: reuse cached body but bump cached timestamp
+			const body = await cached.clone().text();
+			const lastUpdated = cached.headers.get(LAST_UPDATED_HEADER) ?? '';
+			const newCached = toCachedResponse(body, cachedEtag ?? null, lastUpdated);
+			if (cache) {
+				try {
+					await cache.put(cacheKey, newCached.clone());
+				} catch {
+					// ignore cache errors
 				}
-			};
-
-			// Stale-while-revalidate: serve cached immediately and refresh in background
-			if (waitUntil) waitUntil(revalidate());
-			return responseFromCached(cached, origin ?? null, rate, {
-				'X-No-Tone-Cache': 'stale',
-				Warning: '110 - "Response is stale"',
+			}
+			const headers = buildHeadersWithRate(origin ?? null, rate, {
+				[LAST_UPDATED_HEADER]: lastUpdated,
+				'Server-Timing': `github;dur=${Date.now() - upstreamStartedAt}`,
+				'X-No-Tone-Cache': 'revalidated',
 			});
+			return new Response(body, { status: 200, headers });
 		}
-	}
 
-	// Fetch from GitHub (optionally revalidate with ETag)
-	const cachedEtag = cached?.headers.get('ETag');
-	const upstreamStartedAt = Date.now();
-	let upstream: Response;
-	try {
-		upstream = await fetch(GITHUB_API_URL, {
-			headers: {
-				// GitHub requires a User-Agent
-				'User-Agent': 'no-tone-site',
-				'Accept': 'application/vnd.github.mercy-preview+json', // Needed for topics
-				...(cachedEtag ? { 'If-None-Match': cachedEtag } : {}),
-			},
-		});
-	} catch (error) {
-		logProjectsApiIssue('upstream_threw', {
-			latencyMs: Date.now() - upstreamStartedAt,
-			hasCachedResponse: !!cached,
-			error: error instanceof Error ? error.message : 'unknown-error',
-		});
-		if (cached) {
-			return responseFromCached(cached, origin ?? null, rate, {
-				'X-No-Tone-Cache': 'stale',
-				Warning: '110 - "Response is stale"',
+		if (!upstream.ok) {
+			logProjectsApiIssue('upstream_failed', {
+				status: upstream.status,
+				latencyMs: Date.now() - upstreamStartedAt,
+				hasCachedResponse: !!cached,
 			});
+			// If we have anything cached (even stale), serve it.
+			if (cached) {
+				return responseFromCached(cached, origin ?? null, rate, {
+					'X-No-Tone-Cache': 'stale',
+					Warning: '110 - "Response is stale"',
+				});
+			}
+			return jsonError(
+				503,
+				'Projects are temporarily unavailable',
+				origin ?? null,
+				rate,
+				{
+					'Retry-After': String(BROWSER_TTL_SECONDS),
+					'X-Upstream-Status': String(upstream.status),
+				},
+			);
 		}
-		return jsonError(
-			503,
-			'Projects are temporarily unavailable',
-			origin ?? null,
-			rate,
-			{
-				'Retry-After': String(BROWSER_TTL_SECONDS),
-			},
-		);
-	}
 
-	if (upstream.status === 304 && cached) {
-		// Not modified: reuse cached body but bump cached timestamp
-		const body = await cached.clone().text();
-		const lastUpdated = cached.headers.get(LAST_UPDATED_HEADER) ?? '';
-		const newCached = toCachedResponse(body, cachedEtag ?? null, lastUpdated);
+		const raw = await upstream.json();
+		const simplified = simplifyRepos(raw);
+		const body = JSON.stringify(simplified);
+		const lastUpdated = getLastUpdatedAt(simplified);
+
+		// Store in edge cache for subsequent requests (store ETag + cached-at)
+		const etag = upstream.headers.get('ETag');
 		if (cache) {
 			try {
-				await cache.put(cacheKey, newCached.clone());
+				await cache.put(
+					cacheKey,
+					toCachedResponse(body, etag, lastUpdated).clone(),
+				);
 			} catch {
 				// ignore cache errors
 			}
 		}
+
 		const headers = buildHeadersWithRate(origin ?? null, rate, {
 			[LAST_UPDATED_HEADER]: lastUpdated,
 			'Server-Timing': `github;dur=${Date.now() - upstreamStartedAt}`,
-			'X-No-Tone-Cache': 'revalidated',
+			'X-No-Tone-Cache': 'miss',
 		});
 		return new Response(body, { status: 200, headers });
-	}
-
-	if (!upstream.ok) {
-		logProjectsApiIssue('upstream_failed', {
-			status: upstream.status,
-			latencyMs: Date.now() - upstreamStartedAt,
-			hasCachedResponse: !!cached,
+	} catch (error) {
+		logProjectsApiIssue('handler_failed', {
+			error: error instanceof Error ? error.message : 'unknown-error',
 		});
-		// If we have anything cached (even stale), serve it.
-		if (cached) {
-			return responseFromCached(cached, origin ?? null, rate, {
-				'X-No-Tone-Cache': 'stale',
-				Warning: '110 - "Response is stale"',
-			});
-		}
-		return jsonError(
-			503,
-			'Projects are temporarily unavailable',
-			origin ?? null,
-			rate,
+		return new Response(
+			JSON.stringify({ error: 'Projects are temporarily unavailable' }),
 			{
-				'Retry-After': String(BROWSER_TTL_SECONDS),
-				'X-Upstream-Status': String(upstream.status),
+				status: 503,
+				headers: buildHeaders(origin ?? null),
 			},
 		);
 	}
-
-	const raw = await upstream.json();
-	const simplified = simplifyRepos(raw);
-	const body = JSON.stringify(simplified);
-	const lastUpdated = getLastUpdatedAt(simplified);
-
-	// Store in edge cache for subsequent requests (store ETag + cached-at)
-	const etag = upstream.headers.get('ETag');
-	if (cache) {
-		try {
-			await cache.put(
-				cacheKey,
-				toCachedResponse(body, etag, lastUpdated).clone(),
-			);
-		} catch {
-			// ignore cache errors
-		}
-	}
-
-	const headers = buildHeadersWithRate(origin ?? null, rate, {
-		[LAST_UPDATED_HEADER]: lastUpdated,
-		'Server-Timing': `github;dur=${Date.now() - upstreamStartedAt}`,
-		'X-No-Tone-Cache': 'miss',
-	});
-	return new Response(body, { status: 200, headers });
 }
 
 const methodNotAllowedHandler = (context: APIContext): Response =>

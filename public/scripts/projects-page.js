@@ -257,12 +257,24 @@
         }
         statusEl.textContent = statusBits.join(" · ");
 
-        const data = await res.json();
+        const bodyText = await res.text();
+        let data = null;
+        if (bodyText) {
+          try {
+            data = JSON.parse(bodyText);
+          } catch {
+            if (!res.ok) {
+              throw new Error(`failed to load (${res.status})`);
+            }
+            throw new Error("invalid response");
+          }
+        }
+
         if (!res.ok) {
           const message =
             data && typeof data === "object" && "error" in data
               ? String(data.error || "failed to load")
-              : "failed to load";
+              : `failed to load (${res.status})`;
           throw new Error(message);
         }
 
