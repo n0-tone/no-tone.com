@@ -30,7 +30,8 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 		return Response.redirect(requestUrl.toString(), 301);
 	}
 
-	const response = await next();
+	const downstreamResponse = await next();
+	const response = new Response(downstreamResponse.body, downstreamResponse);
 
 	// Optionally prevent caching of HTML responses that contain nonces
 	const contentType = response.headers.get('Content-Type') || '';

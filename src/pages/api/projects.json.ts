@@ -229,7 +229,7 @@ export async function GET(context: APIContext): Promise<Response> {
 	const cache = (globalThis as any).caches?.default as Cache | undefined;
 	const cacheKey = new Request(GITHUB_API_URL);
 	let cached: Response | undefined;
-	const waitUntil = (context.locals as any)?.runtime?.ctx?.waitUntil as
+	const waitUntil = (context.locals as any)?.cfContext?.waitUntil as
 		| ((promise: Promise<unknown>) => void)
 		| undefined;
 
