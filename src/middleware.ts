@@ -36,6 +36,7 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 	// Optionally prevent caching of HTML responses that contain nonces
 	const contentType = response.headers.get('Content-Type') || '';
 	if (contentType.startsWith('text/html')) {
+		response.headers.set('Content-Type', 'text/html; charset=utf-8');
 		response.headers.set('Cache-Control', 'private, no-store');
 	}
 
