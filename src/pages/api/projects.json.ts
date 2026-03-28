@@ -225,6 +225,8 @@ const toCachedResponse = (
 export async function GET(context: APIContext): Promise<Response> {
 	const request = context.request;
 	const siteOrigin = context.url.origin;
+	const isLocalDev =
+		context.url.hostname === 'localhost' || context.url.hostname === '127.0.0.1';
 	const origin = request.headers.get('Origin');
 	const secFetchSite = request.headers.get('Sec-Fetch-Site');
 	const nowMs = Date.now();
@@ -261,7 +263,14 @@ export async function GET(context: APIContext): Promise<Response> {
 		}
 	}
 
-	const rate = await readRateLimit(request, nowMs, cache);
+	const rate = isLocalDev
+		? {
+				limit: RATE_LIMIT_MAX,
+				remaining: RATE_LIMIT_MAX,
+				resetAt: nowMs + RATE_LIMIT_WINDOW_MS,
+				blocked: false,
+			}
+		: await readRateLimit(request, nowMs, cache);
 	if (rate.blocked) {
 		return jsonError(429, 'Too Many Requests', origin ?? null, rate, {
 			'Retry-After': String(Math.max(1, Math.ceil((rate.resetAt - nowMs) / 1000))),

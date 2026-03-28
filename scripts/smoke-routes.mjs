@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 
 const PORT = 8799;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
+const SMOKE_IP = `198.51.100.${Math.floor(Math.random() * 200) + 1}`;
 const READY_PATTERNS = [
 	'Ready on',
 	'Listening on',
@@ -83,10 +84,18 @@ const main = async () => {
 		assert.equal(projects.response.status, 200);
 		assert.match(projects.text, /projects\//i);
 
-		const api = await fetch(new URL('/api/projects.json', BASE_URL));
-		assert.ok([200, 503].includes(api.status));
+		const api = await fetch(new URL('/api/projects.json', BASE_URL), {
+			headers: {
+				'X-Forwarded-For': SMOKE_IP,
+			},
+		});
+		const apiBody = await api.text();
+		assert.ok(
+			[200, 503].includes(api.status),
+			`Unexpected /api/projects.json status ${api.status}: ${apiBody.slice(0, 240)}`,
+		);
 		assert.match(api.headers.get('content-type') || '', /application\/json/i);
-		JSON.parse(await api.text());
+		JSON.parse(apiBody);
 
 		const missing = await readText('/this-route-should-not-exist');
 		assert.equal(missing.response.status, 404);
