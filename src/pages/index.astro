@@ -4,7 +4,6 @@ import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
 import {
   SITE_DESCRIPTION,
-  SITE_NAME,
   SITE_TITLE,
   SITE_URL,
 } from "../consts";
@@ -35,16 +34,6 @@ const homeSchema = {
   </head>
   <body>
     <Header />
-    <section class="sr-only" aria-labelledby="home-title">
-      <p class="homeIntro__eyebrow">{SITE_NAME}</p>
-      <h1 id="home-title" class="homeIntro__title">
-        Projects, TLDR notes, and software engineering work from no-tone
-      </h1>
-      <h2 class="homeIntro__subtitle">
-        Browse GitHub projects, privacy-focused builds, and contact links from
-        the desktop below.
-      </h2>
-    </section>
     <main class="desktop" aria-label="Desktop">
       <a class="icon" data-icon="folder-projects" href="/projects">
         <span class="icon__glyph" aria-hidden="true">
