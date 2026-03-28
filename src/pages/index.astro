@@ -34,6 +34,15 @@ const homeSchema = {
   </head>
   <body>
     <Header />
+    <section class="sr-only" aria-labelledby="home-title">
+      <h1 id="home-title">
+        no-tone projects, TLDR notes, GitHub work, and contact links
+      </h1>
+      <h2>
+        Software engineer portfolio with projects, TLDR updates, GitHub builds,
+        and contact access from the desktop homepage.
+      </h2>
+    </section>
     <main class="desktop" aria-label="Desktop">
       <a class="icon" data-icon="folder-projects" href="/projects">
         <span class="icon__glyph" aria-hidden="true">
@@ -43,6 +52,7 @@ const homeSchema = {
             width="64"
             height="64"
             loading="eager"
+            fetchpriority="high"
             decoding="async"
           />
         </span>
@@ -57,6 +67,7 @@ const homeSchema = {
             width="64"
             height="64"
             loading="eager"
+            fetchpriority="low"
             decoding="async"
           />
         </span>
@@ -71,6 +82,7 @@ const homeSchema = {
             width="64"
             height="64"
             loading="eager"
+            fetchpriority="low"
             decoding="async"
           />
         </span>
