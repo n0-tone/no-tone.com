@@ -638,6 +638,45 @@ hr {
   overflow: hidden;
 }
 
+.homeIntro {
+  position: fixed;
+  top: 84px;
+  left: 28px;
+  z-index: 20;
+  max-width: min(520px, calc(100vw - 56px));
+  pointer-events: none;
+}
+
+.homeIntro__eyebrow,
+.homeIntro__title,
+.homeIntro__subtitle {
+  display: inline;
+  margin: 0;
+  background: var(--bg);
+  color: var(--chrome-fg);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0 4px;
+}
+
+.homeIntro__eyebrow {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.homeIntro__title {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+.homeIntro__subtitle {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
 .desktop .icon {
   opacity: 0;
 }
@@ -707,6 +746,10 @@ hr {
   color: var(--desktop-label);
 }
 
+.page__title--error {
+  text-transform: lowercase;
+}
+
 .page__figure {
   margin: 8px 0 0 0;
   max-width: 320px;
@@ -720,6 +763,17 @@ hr {
 }
 
 @media (max-width: 600px) {
+  .homeIntro {
+    top: 84px;
+    left: 18px;
+    max-width: calc(100vw - 36px);
+  }
+
+  .homeIntro__title,
+  .homeIntro__subtitle {
+    font-size: 13px;
+  }
+
   .page__figure {
     max-width: 190px;
   }

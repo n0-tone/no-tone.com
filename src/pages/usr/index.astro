@@ -4,7 +4,9 @@ import Header from "../../components/Header.astro";
 import Footer from "../../components/Footer.astro";
 import NoteDate from "../../components/NoteDate.astro";
 
-const title = "usr";
+const title = "USR | no-tone";
+const description =
+  "Explore no-tone experience, engineering stack, education, tools, and technical interests.";
 
 const cspNonce = Astro.locals.cspNonce;
 ---
@@ -12,7 +14,7 @@ const cspNonce = Astro.locals.cspNonce;
 <!doctype html>
 <html lang="en">
   <head>
-    <BaseHead title={title} description={title} />
+    <BaseHead title={title} description={description} />
   </head>
   <body>
     <Header />

@@ -24,6 +24,12 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 	const nonce = generateNonce();
 	context.locals.cspNonce = nonce;
 
+	const requestUrl = new URL(context.request.url);
+	if (requestUrl.hostname === 'www.no-tone.com') {
+		requestUrl.hostname = 'no-tone.com';
+		return Response.redirect(requestUrl.toString(), 301);
+	}
+
 	const response = await next();
 
 	// Optionally prevent caching of HTML responses that contain nonces
@@ -32,9 +38,9 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 		response.headers.set('Cache-Control', 'private, no-store');
 	}
 
-	const url = new URL(context.request.url);
-	const isLocalDev = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
-	const cspReportUrl = new URL(CSP_REPORT_PATH, url).toString();
+	const isLocalDev =
+		requestUrl.hostname === 'localhost' || requestUrl.hostname === '127.0.0.1';
+	const cspReportUrl = new URL(CSP_REPORT_PATH, requestUrl).toString();
 
 	// Baseline security headers
 	const baseHeaders: Record<string, string> = {
@@ -83,8 +89,6 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 	// Avoid breaking local HTTP dev by upgrading.
 	if (!isLocalDev) {
 		directives.push('upgrade-insecure-requests');
-		directives.push("trusted-types default");
-		directives.push("require-trusted-types-for 'script'");
 	}
 
 	const csp = directives.join('; ');

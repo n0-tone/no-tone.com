@@ -2,17 +2,49 @@
 import BaseHead from "../components/BaseHead.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
-import { SITE_TITLE, SITE_DESCRIPTION } from "../consts";
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_TITLE,
+  SITE_URL,
+} from "../consts";
 const cspNonce = Astro.locals.cspNonce;
+const homeSchema = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  name: SITE_TITLE,
+  url: SITE_URL,
+  description: SITE_DESCRIPTION,
+  about: [
+    "projects",
+    "GitHub repositories",
+    "software engineering notes",
+    "Cloudflare Workers",
+  ],
+};
 ---
 
 <!doctype html>
 <html lang="en">
   <head>
-    <BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
+    <BaseHead
+      title={SITE_TITLE}
+      description={SITE_DESCRIPTION}
+      schema={homeSchema}
+    />
   </head>
   <body>
     <Header />
+    <section class="homeIntro" aria-labelledby="home-title">
+      <p class="homeIntro__eyebrow">{SITE_NAME}</p>
+      <h1 id="home-title" class="homeIntro__title">
+        Projects, TLDR notes, and software engineering work from no-tone
+      </h1>
+      <h2 class="homeIntro__subtitle">
+        Browse GitHub projects, privacy-focused builds, and contact links from
+        the desktop below.
+      </h2>
+    </section>
     <main class="desktop" aria-label="Desktop">
       <a class="icon" data-icon="folder-projects" href="/projects">
         <span class="icon__glyph" aria-hidden="true">

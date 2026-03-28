@@ -1,13 +1,20 @@
 ---
 import globalCssUrl from "../styles/global.css?url";
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "../consts";
 
 interface Props {
   title: string;
   description: string;
   image?: string;
+  schema?: Record<string, unknown> | Array<Record<string, unknown>>;
 }
 
-const { title, description, image = "/b.png" } = Astro.props as Props;
+const {
+  title,
+  description,
+  image = "/b.png",
+  schema,
+} = Astro.props as Props;
 const jbMonoFontUrl = import.meta.env.PUBLIC_JB_MONO_FONT_URL;
 const fontOrigin = jbMonoFontUrl ? new URL(jbMonoFontUrl).origin : null;
 
@@ -16,6 +23,32 @@ const cspNonce = Astro.locals.cspNonce;
 const canonicalURL = Astro.site
   ? new URL(Astro.url.pathname, Astro.site)
   : Astro.url;
+const ogImageUrl = new URL(image, Astro.url);
+const schemaItems = Array.isArray(schema) ? schema : schema ? [schema] : [];
+const defaultSchema = [
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: SITE_NAME,
+    url: SITE_URL,
+    description: SITE_DESCRIPTION,
+    inLanguage: "en",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: SITE_NAME,
+    url: SITE_URL,
+    sameAs: ["https://github.com/n0-tone"],
+    knowsAbout: [
+      "Software engineering",
+      "Full-stack development",
+      "Cloudflare Workers",
+      "Privacy engineering",
+    ],
+  },
+];
+const resolvedSchema = [...defaultSchema, ...schemaItems];
 ---
 
 <!-- Global Metadata -->
@@ -23,6 +56,7 @@ const canonicalURL = Astro.site
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" type="image/png" sizes="32x32" href="/y.png" />
 <meta name="generator" content={Astro.generator} />
+<meta name="robots" content="index,follow" />
 <link rel="preload" as="style" href={globalCssUrl} />
 <link rel="stylesheet" href={globalCssUrl} />
 
@@ -121,11 +155,17 @@ const canonicalURL = Astro.site
 <meta property="og:url" content={Astro.url} />
 <meta property="og:title" content={title} />
 <meta property="og:description" content={description} />
-<meta property="og:image" content={new URL(image, Astro.url)} />
+<meta property="og:image" content={ogImageUrl} />
 
 <!-- Twitter -->
 <meta property="twitter:card" content="summary_large_image" />
 <meta property="twitter:url" content={Astro.url} />
 <meta property="twitter:title" content={title} />
 <meta property="twitter:description" content={description} />
-<meta property="twitter:image" content={new URL(image, Astro.url)} />
+<meta property="twitter:image" content={ogImageUrl} />
+
+<script
+  type="application/ld+json"
+  nonce={cspNonce}
+  set:html={JSON.stringify(resolvedSchema)}
+></script>

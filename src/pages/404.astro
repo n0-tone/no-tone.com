@@ -1,3 +1,32 @@
 ---
-return Astro.redirect("/", 302);
+import BaseHead from "../components/BaseHead.astro";
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
 ---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <BaseHead
+      title="404 | no-tone"
+      description="The page you were looking for does not exist. Browse projects, TLDR notes, or the usr directory instead."
+    />
+  </head>
+  <body>
+    <Header />
+    <main class="note note--error">
+      <p class="note__date">404</p>
+      <h1 class="page__title page__title--error">page not found</h1>
+      <div class="note__content">
+        <p>
+          That path does not exist on <strong>no-tone.com</strong>.
+        </p>
+        <p>
+          Try <a href="/projects/">/projects/</a>,
+          <a href="/tldr/">/tldr/</a>, or <a href="/usr/">/usr/</a>.
+        </p>
+      </div>
+    </main>
+    <Footer />
+  </body>
+</html>

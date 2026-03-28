@@ -1,5 +1,5 @@
-// Place any global data in this file.
-// You can import this data from anywhere in your site by using the `import` keyword.
-
-export const SITE_TITLE = "no-tone";
-export const SITE_DESCRIPTION = "Explore thoughts and project updates from no-tone.";
+export const SITE_NAME = "no-tone";
+export const SITE_URL = "https://no-tone.com";
+export const SITE_TITLE = "no-tone | Projects, TLDR, and Software Engineering";
+export const SITE_DESCRIPTION =
+  "Explore no-tone projects, GitHub work, software engineering notes, and privacy-focused full-stack builds on Cloudflare Workers.";

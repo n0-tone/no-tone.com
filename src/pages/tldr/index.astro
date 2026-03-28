@@ -4,7 +4,9 @@ import Header from "../../components/Header.astro";
 import Footer from "../../components/Footer.astro";
 import NoteDate from "../../components/NoteDate.astro";
 
-const title = "tldr";
+const title = "TLDR | no-tone";
+const description =
+  "A short introduction to no-tone: full-stack engineering, privacy, Cloudflare Workers, and current focus areas.";
 
 const cspNonce = Astro.locals.cspNonce;
 ---
@@ -12,7 +14,7 @@ const cspNonce = Astro.locals.cspNonce;
 <!doctype html>
 <html lang="en">
   <head>
-    <BaseHead title={title} description={title} image="/b.png" />
+    <BaseHead title={title} description={description} image="/b.png" />
   </head>
   <body>
     <Header />
