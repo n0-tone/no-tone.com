@@ -1,5 +1,5 @@
 ---
-import "../styles/global.css";
+import globalCss from "../styles/global.css?inline";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "../consts";
 
 interface Props {
@@ -62,6 +62,7 @@ const resolvedSchema = [...defaultSchema, ...schemaItems];
 <link rel="manifest" href="/site.webmanifest" />
 <meta name="generator" content={Astro.generator} />
 <meta name="robots" content="index,follow" />
+<style nonce={cspNonce} set:html={globalCss}></style>
 <!-- Preconnect to Cloudflare Fonts origin -->
 {
   fontOrigin && fontOrigin !== canonicalURL.origin && (
