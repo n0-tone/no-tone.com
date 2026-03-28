@@ -1,5 +1,4 @@
 ---
-const cspNonce = Astro.locals.cspNonce;
 const contactValue = "msg@no-tone.com";
 ---
 
@@ -21,8 +20,4 @@ const contactValue = "msg@no-tone.com";
   </nav>
 </footer>
 
-<script nonce={cspNonce}>
-  import initFooter from "../scripts/footer.ts";
-
-  initFooter();
-</script>
+<script type="module" src="/scripts/footer.js"></script>

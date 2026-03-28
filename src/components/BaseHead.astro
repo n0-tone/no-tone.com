@@ -90,11 +90,7 @@ const resolvedSchema = [...defaultSchema, ...schemaItems];
 </script>
 
 <!-- Shared client helpers -->
-<script nonce={cspNonce}>
-  import initSharedHead from "../scripts/shared-head.ts";
-
-  initSharedHead();
-</script>
+<script type="module" src="/scripts/shared-head.js"></script>
 
 <!-- Canonical URL -->
 <link rel="canonical" href={canonicalURL} />
