@@ -69,7 +69,7 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 
 	const styleSrc = isLocalDev
 		? "style-src 'self' 'unsafe-inline'"
-		: "style-src 'self'";
+		: `style-src 'self' 'nonce-${nonce}'`;
 
 	const directives = [
 		"default-src 'none'",
