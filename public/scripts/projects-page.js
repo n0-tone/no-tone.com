@@ -1,4 +1,7 @@
 (() => {
+  const CACHE_KEY = "no-tone:projects-cache:v1";
+  const RETRY_DELAYS_MS = [250, 700];
+
   const normalize = (value) =>
     String(value || "")
       .toLowerCase()
@@ -129,6 +132,44 @@
 
     const state = { repos: [] };
     let renderDebounceId;
+    let hasBoundEvents = false;
+
+    const readCache = () => {
+      try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          Array.isArray(parsed.repos)
+        ) {
+          return {
+            repos: parsed.repos,
+            lastUpdated:
+              typeof parsed.lastUpdated === "string" ? parsed.lastUpdated : "",
+          };
+        }
+      } catch {
+        // no-op
+      }
+      return null;
+    };
+
+    const writeCache = (repos, lastUpdated) => {
+      try {
+        localStorage.setItem(
+          CACHE_KEY,
+          JSON.stringify({
+            repos,
+            lastUpdated,
+            cachedAt: Date.now(),
+          }),
+        );
+      } catch {
+        // no-op
+      }
+    };
 
     const getFilters = () => ({
       q: normalize(qEl.value),
@@ -175,6 +216,7 @@
     };
 
     const populateLanguages = (repos) => {
+      langEl.innerHTML = '<option value="">all</option>';
       const values = new Set();
       for (const repo of repos) {
         values.add(repo.language || "Other");
@@ -189,6 +231,9 @@
     };
 
     const bind = () => {
+      if (hasBoundEvents) return;
+      hasBoundEvents = true;
+
       const queueRender = () => {
         window.clearTimeout(renderDebounceId);
         renderDebounceId = window.setTimeout(render, 90);
@@ -236,65 +281,109 @@
       });
     };
 
+    const mapRepos = (raw) =>
+      raw.map((repo) => {
+        const topics = Array.isArray(repo.topics) ? repo.topics : [];
+        const homepage = String(repo.homepage || "").trim();
+        return {
+          ...repo,
+          __search: normalize(
+            [repo.name, repo.description, repo.language, ...topics].join(" "),
+          ),
+          __hasPages: repo.hasPages === true || topics.includes("github-pages"),
+          __hasWebsite: noTone.isSafeExternalUrl(homepage) === true,
+        };
+      });
+
+    const hydrate = (raw) => {
+      state.repos = mapRepos(raw);
+      populateLanguages(state.repos);
+      bind();
+      render();
+    };
+
+    const sleep = (ms) =>
+      new Promise((resolve) => {
+        window.setTimeout(resolve, ms);
+      });
+
     const load = async () => {
       listEl.textContent = "loading…";
       metaEl.textContent = "";
       statusEl.textContent = "";
 
       try {
-        const res = await fetch(apiUrl);
-        const statusBits = [];
-        const lastUpdated = res.headers.get("x-no-tone-last-updated");
-        const parsedUpdated = lastUpdated ? Date.parse(lastUpdated) : Number.NaN;
-        const rlRemaining = res.headers.get("x-ratelimit-remaining");
-        const rlLimit = res.headers.get("x-ratelimit-limit");
+        let lastError = null;
 
-        if (Number.isFinite(parsedUpdated)) {
-          statusBits.push(`last updated: ${dateFmt.format(parsedUpdated)}`);
-        }
-        if (rlRemaining && rlLimit) {
-          statusBits.push(`rate limit: ${rlRemaining}/${rlLimit}`);
-        }
-        statusEl.textContent = statusBits.join(" · ");
-
-        const bodyText = await res.text();
-        let data = null;
-        if (bodyText) {
+        for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
           try {
-            data = JSON.parse(bodyText);
-          } catch {
-            if (!res.ok) {
-              throw new Error(`failed to load (${res.status})`);
+            const res = await fetch(apiUrl, {
+              headers: { accept: "application/json" },
+              cache: "no-store",
+            });
+            const statusBits = [];
+            const lastUpdated = res.headers.get("x-no-tone-last-updated");
+            const parsedUpdated = lastUpdated ? Date.parse(lastUpdated) : Number.NaN;
+            const rlRemaining = res.headers.get("x-ratelimit-remaining");
+            const rlLimit = res.headers.get("x-ratelimit-limit");
+
+            if (Number.isFinite(parsedUpdated)) {
+              statusBits.push(`last updated: ${dateFmt.format(parsedUpdated)}`);
             }
-            throw new Error("invalid response");
+            if (rlRemaining && rlLimit) {
+              statusBits.push(`rate limit: ${rlRemaining}/${rlLimit}`);
+            }
+
+            const bodyText = await res.text();
+            let data = null;
+            if (bodyText) {
+              try {
+                data = JSON.parse(bodyText);
+              } catch {
+                if (!res.ok) {
+                  throw new Error(`failed to load (${res.status})`);
+                }
+                throw new Error("invalid response");
+              }
+            }
+
+            if (!res.ok) {
+              const message =
+                data && typeof data === "object" && "error" in data
+                  ? String(data.error || "failed to load")
+                  : `failed to load (${res.status})`;
+              throw new Error(message);
+            }
+
+            const raw = Array.isArray(data) ? data : [];
+            writeCache(raw, lastUpdated || "");
+            statusEl.textContent = statusBits.join(" · ");
+            hydrate(raw);
+            return;
+          } catch (error) {
+            lastError = error;
+            if (attempt < RETRY_DELAYS_MS.length) {
+              await sleep(RETRY_DELAYS_MS[attempt]);
+            }
           }
         }
 
-        if (!res.ok) {
-          const message =
-            data && typeof data === "object" && "error" in data
-              ? String(data.error || "failed to load")
-              : `failed to load (${res.status})`;
-          throw new Error(message);
+        throw lastError || new Error("failed to load");
+      } catch (error) {
+        const cached = readCache();
+        if (cached) {
+          const statusBits = ["cached copy"];
+          const parsedUpdated = cached.lastUpdated
+            ? Date.parse(cached.lastUpdated)
+            : Number.NaN;
+          if (Number.isFinite(parsedUpdated)) {
+            statusBits.unshift(`last updated: ${dateFmt.format(parsedUpdated)}`);
+          }
+          statusEl.textContent = statusBits.join(" · ");
+          hydrate(cached.repos);
+          return;
         }
 
-        const raw = Array.isArray(data) ? data : [];
-        state.repos = raw.map((repo) => {
-          const topics = Array.isArray(repo.topics) ? repo.topics : [];
-          const homepage = String(repo.homepage || "").trim();
-          return {
-            ...repo,
-            __search: normalize(
-              [repo.name, repo.description, repo.language, ...topics].join(" "),
-            ),
-            __hasPages: repo.hasPages === true || topics.includes("github-pages"),
-            __hasWebsite: noTone.isSafeExternalUrl(homepage) === true,
-          };
-        });
-        populateLanguages(state.repos);
-        bind();
-        render();
-      } catch (error) {
         const message =
           error instanceof Error && error.message
             ? error.message.toLowerCase()

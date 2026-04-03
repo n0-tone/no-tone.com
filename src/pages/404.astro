@@ -1,7 +1,8 @@
 ---
 import BaseHead from "../components/BaseHead.astro";
-import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
+import Header from "../components/Header.astro";
+const windowMode = Astro.url.searchParams.get("window") === "1";
 ---
 
 <!doctype html>
@@ -12,19 +13,24 @@ import Footer from "../components/Footer.astro";
       description="The page you were looking for does not exist. Browse projects, tldr notes, or the usr directory instead."
     />
   </head>
-  <body>
-    <Header />
-    <main class="note note--error">
-      <h1 class="page__title page__title--error">404</h1>
-      <p>
-        This is a broken link, or the page you were trying to open no longer
-        exists.
-      </p>
-      <p>
-        Try <a href="/projects/">/projects/</a>, <a href="/tldr/">/tldr/</a>,
-        or <a href="/usr/">/usr/</a>.
-      </p>
+  <body
+    data-window-mode={windowMode ? "true" : undefined}
+    data-standalone-window={!windowMode ? "true" : undefined}
+  >
+    {!windowMode && <Header />}
+    <main class="note note--error" data-window-root data-window-name="404">
+      <h1 class="page__title">404/</h1>
+      <div class="note__content">
+        <p>
+          This is a broken link, or the page you were trying to open no longer
+          exists.
+        </p>
+        <p>
+          Try <a href="/projects/">/projects/</a>, <a href="/tldr/">/tldr/</a>,
+          or <a href="/usr/">/usr/</a>.
+        </p>
+      </div>
     </main>
-    <Footer />
+    {!windowMode && <Footer />}
   </body>
 </html>

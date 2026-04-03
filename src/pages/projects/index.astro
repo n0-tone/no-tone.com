@@ -1,11 +1,12 @@
 ---
 import BaseHead from "../../components/BaseHead.astro";
-import Header from "../../components/Header.astro";
 import Footer from "../../components/Footer.astro";
+import Header from "../../components/Header.astro";
 
 const title = "no-tone | projects";
 const description =
   "Browse no-tone GitHub projects, repositories, tech stacks, and published websites.";
+const windowMode = Astro.url.searchParams.get("window") === "1";
 ---
 
 <!doctype html>
@@ -19,9 +20,17 @@ const description =
       crossorigin="anonymous"
     />
   </head>
-  <body>
-    <Header />
-    <main class="projects" aria-label="projects">
+  <body
+    data-window-mode={windowMode ? "true" : undefined}
+    data-standalone-window={!windowMode ? "true" : undefined}
+  >
+    {!windowMode && <Header />}
+    <main
+      class="projects"
+      aria-label="projects"
+      data-window-root
+      data-window-name="projects"
+    >
       <section class="projects__panel" aria-label="projects browser">
         <div class="projects__header">
           <h1 class="projects__title">projects/</h1>
@@ -92,8 +101,7 @@ const description =
         <div class="projects__list" id="list" aria-label="Project list"></div>
       </section>
     </main>
-    <Footer />
-
+    {!windowMode && <Footer />}
     <script type="module" src="/scripts/projects-page.js"></script>
   </body>
 </html>

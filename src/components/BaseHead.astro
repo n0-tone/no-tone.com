@@ -92,11 +92,18 @@ const resolvedSchema = [...defaultSchema, ...schemaItems];
   })();
 </script>
 
+<script>
+  import { initSiteEffects } from "../scripts/site-effects";
+
+  initSiteEffects();
+</script>
+
 <!-- Shared client helpers -->
 <script is:inline nonce={cspNonce}>
   (() => {
     const root = (window.noTone ??= {});
     const THEME_KEY = "theme";
+    const copyResetTimers = new WeakMap();
 
     root.getStoredTheme = () => {
       try {
@@ -108,11 +115,17 @@ const resolvedSchema = [...defaultSchema, ...schemaItems];
     };
 
     root.setStoredTheme = (theme) => {
+      root.applyTheme(theme);
       try {
         localStorage.setItem(THEME_KEY, theme);
       } catch {
         // no-op
       }
+      window.dispatchEvent(
+        new CustomEvent("no-tone:themechange", {
+          detail: { theme },
+        }),
+      );
     };
 
     root.readTheme = () =>
@@ -121,6 +134,17 @@ const resolvedSchema = [...defaultSchema, ...schemaItems];
 
     root.applyTheme = (theme) => {
       document.documentElement.dataset.theme = theme;
+    };
+
+    root.syncTheme = (theme) => {
+      const resolved = theme === "light" || theme === "dark" ? theme : root.readTheme();
+      root.applyTheme(resolved);
+      try {
+        localStorage.setItem(THEME_KEY, resolved);
+      } catch {
+        // no-op
+      }
+      return resolved;
     };
 
     root.isSafeExternalUrl = (value) => {
@@ -138,6 +162,47 @@ const resolvedSchema = [...defaultSchema, ...schemaItems];
       if (!root.isSafeExternalUrl(url)) return;
       window.open(String(url), "_blank", "noopener,noreferrer");
     };
+
+    document.addEventListener("click", async (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const button = target.closest("[data-copy-contact]");
+      if (!(button instanceof HTMLButtonElement)) return;
+
+      const value = button.dataset.copyValue || "";
+      if (!value) return;
+
+      try {
+        await navigator.clipboard.writeText(value);
+        button.textContent = "copied";
+      } catch {
+        button.textContent = "failed";
+      }
+
+      const currentReset = copyResetTimers.get(button);
+      if (currentReset) {
+        window.clearTimeout(currentReset);
+      }
+
+      const resetTimer = window.setTimeout(() => {
+        button.textContent = "contact";
+        copyResetTimers.delete(button);
+      }, 1200);
+      copyResetTimers.set(button, resetTimer);
+    });
+
+    window.addEventListener("no-tone:themechange", (event) => {
+      if (!(event instanceof CustomEvent)) return;
+      root.syncTheme(event.detail?.theme);
+    });
+
+    window.addEventListener("message", (event) => {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data;
+      if (!data || typeof data !== "object") return;
+      if (data.type !== "no-tone:set-theme") return;
+      root.syncTheme(data.theme);
+    });
   })();
 </script>
 

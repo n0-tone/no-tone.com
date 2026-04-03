@@ -3,6 +3,9 @@ import { isSameOriginReferrer } from "../utils/navigation";
 
 const isHome = Astro.url.pathname === "/";
 const cspNonce = Astro.locals.cspNonce;
+const routeTitle = isHome
+  ? ""
+  : `${Astro.url.pathname.replace(/^\/|\/$/g, "") || "window"}/`;
 const canGoBack = isSameOriginReferrer(
   Astro.request.headers.get("referer"),
   Astro.url.origin,
@@ -14,15 +17,7 @@ const canGoBack = isSameOriginReferrer(
     class={`topbar__nav${isHome ? " topbar__nav--home" : ""}`}
     aria-label="Primary"
   >
-    <button
-      class="topbar__back"
-      type="button"
-      aria-label={canGoBack ? "Go back" : "Return home"}
-      data-can-go-back={canGoBack ? "true" : "false"}
-      hidden={isHome}
-    >
-      <span aria-hidden="true">←</span>
-    </button>
+    <span class="topbar__title" aria-hidden={isHome}>{routeTitle}</span>
     <button
       class="topbar__toggle"
       type="button"
@@ -31,7 +26,15 @@ const canGoBack = isSameOriginReferrer(
     >
       <span class="topbar__toggleIcon" aria-hidden="true">☀︎</span>
     </button>
-    <span class="topbar__spacer" aria-hidden="true"></span>
+    <button
+      class="topbar__back"
+      type="button"
+      aria-label={canGoBack ? "Close and go back" : "Close and return home"}
+      data-can-go-back={canGoBack ? "true" : "false"}
+      hidden={isHome}
+    >
+      <span class="topbar__closeIcon" aria-hidden="true">×</span>
+    </button>
   </nav>
 </header>
 
@@ -43,7 +46,6 @@ const canGoBack = isSameOriginReferrer(
     if (!(toggle instanceof HTMLButtonElement) || !(icon instanceof HTMLElement)) {
       return;
     }
-
     const noTone = window.noTone;
     if (
       !noTone?.readTheme ||
@@ -75,6 +77,7 @@ const canGoBack = isSameOriginReferrer(
         syncFromStorage();
       }
     });
+    window.addEventListener("no-tone:themechange", syncFromStorage);
 
     toggle.addEventListener("click", () => {
       const current =
@@ -85,7 +88,12 @@ const canGoBack = isSameOriginReferrer(
     });
 
     if (back instanceof HTMLButtonElement && !back.hidden) {
-      back.addEventListener("click", () => {
+      back.addEventListener("click", (event) => {
+        if (typeof noTone.closeCurrentWindow === "function") {
+          event.preventDefault();
+          noTone.closeCurrentWindow(back);
+          return;
+        }
         if (back.dataset.canGoBack === "true" && window.history.length > 1) {
           window.history.back();
           return;

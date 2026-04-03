@@ -78,7 +78,7 @@ const main = async () => {
 		const home = await readText('/');
 		assert.equal(home.response.status, 200);
 		assert.match(home.response.headers.get('content-type') || '', /text\/html/i);
-		assert.match(home.text, /no-tone \| Software Engineer/i);
+		assert.match(home.text, /no-tone \| Personal Portfolio\/Desktop/i);
 
 		const projects = await readText('/projects/');
 		assert.equal(projects.response.status, 200);

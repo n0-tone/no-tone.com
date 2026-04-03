@@ -1,7 +1,7 @@
 ---
 import BaseHead from "../../components/BaseHead.astro";
-import Header from "../../components/Header.astro";
 import Footer from "../../components/Footer.astro";
+import Header from "../../components/Header.astro";
 import NoteDate from "../../components/NoteDate.astro";
 
 const title = "no-tone | usr";
@@ -9,6 +9,7 @@ const description =
   "Explore no-tone experience, engineering stack, education, tools, and technical interests.";
 
 const cspNonce = Astro.locals.cspNonce;
+const windowMode = Astro.url.searchParams.get("window") === "1";
 ---
 
 <!doctype html>
@@ -16,9 +17,17 @@ const cspNonce = Astro.locals.cspNonce;
   <head>
     <BaseHead title={title} description={description} />
   </head>
-  <body>
-    <Header />
-    <main class="page" aria-label="File explorer">
+  <body
+    data-window-mode={windowMode ? "true" : undefined}
+    data-standalone-window={!windowMode ? "true" : undefined}
+  >
+    {!windowMode && <Header />}
+    <main
+      class="page"
+      aria-label="File explorer"
+      data-window-root
+      data-window-name="usr"
+    >
       <NoteDate nonce={cspNonce} />
       <h1 class="page__title">usr/</h1>
       <ul class="tree" data-root>
@@ -490,7 +499,7 @@ const cspNonce = Astro.locals.cspNonce;
         </li>
       </ul>
     </main>
-    <Footer />
+    {!windowMode && <Footer />}
     <script is:inline nonce={cspNonce}>
       (() => {
         const root = document.querySelector(".tree[data-root]");

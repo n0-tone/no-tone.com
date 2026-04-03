@@ -1,7 +1,7 @@
 ---
 import BaseHead from "../../components/BaseHead.astro";
-import Header from "../../components/Header.astro";
 import Footer from "../../components/Footer.astro";
+import Header from "../../components/Header.astro";
 import NoteDate from "../../components/NoteDate.astro";
 
 const title = "no-tone | tldr";
@@ -9,6 +9,7 @@ const description =
   "A short introduction to no-tone: full-stack engineering, privacy, Cloudflare Workers, and current focus areas.";
 
 const cspNonce = Astro.locals.cspNonce;
+const windowMode = Astro.url.searchParams.get("window") === "1";
 ---
 
 <!doctype html>
@@ -16,9 +17,12 @@ const cspNonce = Astro.locals.cspNonce;
   <head>
     <BaseHead title={title} description={description} image="/images/meta/og.png" />
   </head>
-  <body>
-    <Header />
-    <main class="note">
+  <body
+    data-window-mode={windowMode ? "true" : undefined}
+    data-standalone-window={!windowMode ? "true" : undefined}
+  >
+    {!windowMode && <Header />}
+    <main class="note" data-window-root data-window-name="tldr">
       <NoteDate nonce={cspNonce} />
       <h1 class="page__title">tldr/</h1>
       <div class="note__content">
@@ -65,6 +69,6 @@ const cspNonce = Astro.locals.cspNonce;
         </p>
       </div>
     </main>
-    <Footer />
+    {!windowMode && <Footer />}
   </body>
 </html>

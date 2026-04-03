@@ -41,6 +41,13 @@ body {
 
 html {
   scrollbar-color: var(--scrollbar) var(--bg);
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 *::-webkit-scrollbar {
@@ -213,6 +220,11 @@ hr {
   padding: 24px 28px;
   pointer-events: none;
   background: transparent;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
 }
 
 .topbar__nav {
@@ -229,6 +241,18 @@ hr {
   pointer-events: none;
 }
 
+.topbar__title {
+  justify-self: start;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--chrome-fg);
+  background: var(--bg);
+  padding: 0 4px;
+  pointer-events: none;
+}
+
 .topbar__back {
   border: none;
   background: var(--bg);
@@ -241,9 +265,10 @@ hr {
   width: fit-content;
   cursor: pointer;
   text-align: left;
-  justify-self: start;
+  justify-self: end;
   width: auto;
   pointer-events: auto;
+  font-size: 22px;
 }
 
 .topbar__back[hidden] {
@@ -266,6 +291,7 @@ hr {
   width: fit-content;
   cursor: pointer;
   pointer-events: auto;
+  justify-self: center;
 }
 
 .topbar__toggle:hover {
@@ -274,6 +300,13 @@ hr {
 
 .topbar__toggleIcon {
   font-size: 22px;
+}
+
+.topbar__closeIcon {
+  display: inline-block;
+  font-size: 30px;
+  line-height: 0.7;
+  transform: translateY(-1px);
 }
 
 .topbar__nav--home {
@@ -293,9 +326,15 @@ hr {
   justify-content: center;
   pointer-events: none;
   background: transparent;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
 }
 
-.bottombar__nav {
+.bottombar__nav,
+.desktopWindow__footerNav {
   display: inline-flex;
   align-items: center;
   gap: 0;
@@ -305,7 +344,8 @@ hr {
   pointer-events: auto;
 }
 
-.bottombar__link {
+.bottombar__link,
+.windowLinks__link {
   color: var(--chrome-fg);
   text-decoration: none;
   background: var(--bg);
@@ -319,11 +359,13 @@ hr {
   cursor: pointer;
 }
 
-.bottombar__link:hover {
+.bottombar__link:hover,
+.windowLinks__link:hover {
   text-decoration: underline;
 }
 
-.bottombar__sep {
+.bottombar__sep,
+.windowLinks__sep {
   margin: 0;
   padding: 0 2px;
   line-height: 1;
@@ -332,6 +374,26 @@ hr {
   width: fit-content;
   background: var(--bg);
   color: var(--chrome-fg);
+}
+
+body[data-window-mode="true"] {
+  min-height: 100%;
+  overflow: auto;
+}
+
+body[data-window-mode="true"] .page,
+body[data-window-mode="true"] .note {
+  min-height: auto;
+  padding: 18px 18px 24px 18px;
+}
+
+body[data-window-mode="true"] .projects {
+  min-height: auto;
+  padding: 18px 18px 24px 18px;
+}
+
+body[data-window-mode="true"] .projects__panel {
+  width: 100%;
 }
 
 /* Projects page (ported from n0-tone) */
@@ -638,6 +700,10 @@ hr {
   overflow: hidden;
 }
 
+[data-window-root] {
+  will-change: transform, opacity;
+}
+
 .homeIntro {
   position: fixed;
   top: 84px;
@@ -726,6 +792,7 @@ hr {
   border: 2px dotted var(--selection-border);
   border-radius: 2px;
   pointer-events: none;
+  z-index: 0;
 }
 
 .icon__glyph img {
@@ -862,6 +929,142 @@ hr {
 html.is-lightbox-open .topbar__nav,
 html.is-lightbox-open .bottombar__nav {
   pointer-events: none;
+}
+
+.desktopWindow {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+}
+
+.desktopWindow[hidden] {
+  display: none;
+}
+
+.desktopWindow__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.desktopWindow__frame {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--desktop-border);
+  background: var(--bg);
+  box-shadow:
+    0 0 0 1px var(--bg),
+    14px 14px 0 rgba(0, 0, 0, 0.12);
+}
+
+.desktopWindow__titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--desktop-border);
+  background: var(--bg);
+  color: var(--chrome-fg);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.desktopWindow__titlebar,
+.desktopWindow__footer {
+  flex: 0 0 auto;
+}
+
+.desktopWindow__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: lowercase;
+}
+
+.desktopWindow__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.desktopWindow__action {
+  border: none;
+  background: transparent;
+  color: var(--chrome-fg);
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  width: 30px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.desktopWindow__action > span {
+  display: block;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.desktopWindow__action:hover {
+  text-decoration: underline;
+}
+
+.desktopWindow__viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.desktopWindow__iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+  background: var(--bg);
+}
+
+.desktopWindow__frame,
+.desktopWindow__titlebar,
+.desktopWindow__footer,
+.desktopWindow__viewport,
+.desktopWindow__iframe {
+  border-radius: 0;
+}
+
+.desktopWindow__footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 45px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--desktop-border);
+  background: var(--bg);
+  color: var(--chrome-fg);
+}
+
+.has-desktop-window-open .topbar__toggle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.has-desktop-window-open .topbar,
+.has-desktop-window-open .bottombar {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.has-desktop-window-open .topbar {
+  transform: translateY(-10px);
+}
+
+.has-desktop-window-open .bottombar {
+  transform: translateY(10px);
 }
 
 .note__date {

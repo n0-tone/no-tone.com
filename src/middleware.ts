@@ -52,7 +52,7 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 		'Cross-Origin-Opener-Policy': 'same-origin',
 		'Cross-Origin-Resource-Policy': 'same-origin',
 		'Cross-Origin-Embedder-Policy-Report-Only': 'require-corp; report-to="csp"',
-		'X-Frame-Options': 'DENY',
+		'X-Frame-Options': 'SAMEORIGIN',
 		'Reporting-Endpoints': `csp="${cspReportUrl}"`,
 	};
 	for (const [name, value] of Object.entries(baseHeaders)) {
@@ -81,7 +81,8 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 		"manifest-src 'self'",
 		"font-src 'self' https: data:",
 		"connect-src 'self' https://api.github.com",
-		"frame-ancestors 'none'",
+		"frame-src 'self'",
+		"frame-ancestors 'self'",
 		"base-uri 'none'",
 		"form-action 'self'",
 		"object-src 'none'",
