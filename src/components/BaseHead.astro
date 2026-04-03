@@ -8,6 +8,7 @@ interface Props {
   image?: string;
   schema?: Record<string, unknown> | Array<Record<string, unknown>>;
   bootstrapSiteEffectsHead?: boolean;
+  isStandalonePage?: boolean;
 }
 
 const {
@@ -16,6 +17,7 @@ const {
   image = "/images/meta/og.png",
   schema,
   bootstrapSiteEffectsHead = false,
+  isStandalonePage = false,
 } = Astro.props as Props;
 const jbMonoFontUrl = import.meta.env.PUBLIC_JB_MONO_FONT_URL;
 const fontOrigin = jbMonoFontUrl ? new URL(jbMonoFontUrl).origin : null;
@@ -60,9 +62,23 @@ const resolvedSchema = [...defaultSchema, ...schemaItems];
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="icon" href="/favicon.ico" sizes="any" />
-<link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png" />
-<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
-<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+<link
+  rel="icon"
+  type="image/png"
+  sizes="16x16"
+  href="/icons/favicon-16x16.png"
+/>
+<link
+  rel="icon"
+  type="image/png"
+  sizes="32x32"
+  href="/icons/favicon-32x32.png"
+/>
+<link
+  rel="apple-touch-icon"
+  sizes="180x180"
+  href="/icons/apple-touch-icon.png"
+/>
 <link rel="manifest" href="/site.webmanifest" />
 <meta name="generator" content={Astro.generator} />
 <meta name="robots" content="index,follow" />
@@ -97,8 +113,16 @@ const resolvedSchema = [...defaultSchema, ...schemaItems];
 {
   bootstrapSiteEffectsHead && (
     <script>
-      import { initSiteEffects } from "../scripts/site-effects";
+      import {initSiteEffects} from "../scripts/site-effects";
+      initSiteEffects();
+    </script>
+  )
+}
 
+{
+  isStandalonePage && (
+    <script>
+      import {initSiteEffects} from "../scripts/site-effects";
       initSiteEffects();
     </script>
   )
@@ -143,7 +167,8 @@ const resolvedSchema = [...defaultSchema, ...schemaItems];
     };
 
     root.syncTheme = (theme) => {
-      const resolved = theme === "light" || theme === "dark" ? theme : root.readTheme();
+      const resolved =
+        theme === "light" || theme === "dark" ? theme : root.readTheme();
       root.applyTheme(resolved);
       try {
         localStorage.setItem(THEME_KEY, resolved);
@@ -248,4 +273,4 @@ const resolvedSchema = [...defaultSchema, ...schemaItems];
   type="application/ld+json"
   nonce={cspNonce}
   set:html={JSON.stringify(resolvedSchema)}
-></script>
+/>

@@ -43,7 +43,10 @@ const canGoBack = isSameOriginReferrer(
     const toggle = document.querySelector(".topbar__toggle");
     const icon = document.querySelector(".topbar__toggleIcon");
     const back = document.querySelector(".topbar__back");
-    if (!(toggle instanceof HTMLButtonElement) || !(icon instanceof HTMLElement)) {
+    if (
+      !(toggle instanceof HTMLButtonElement) ||
+      !(icon instanceof HTMLElement)
+    ) {
       return;
     }
     const noTone = window.noTone;

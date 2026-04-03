@@ -42,6 +42,7 @@ body {
 html {
   scrollbar-color: var(--scrollbar) var(--bg);
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
 }
 
 @media (prefers-reduced-motion: reduce) {

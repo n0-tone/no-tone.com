@@ -16,7 +16,11 @@ const windowMode = Astro.url.searchParams.get("window") === "1";
 <!doctype html>
 <html lang="en">
   <head>
-    <BaseHead title={title} description={description} />
+    <BaseHead
+      title={title}
+      description={description}
+      isStandalonePage={!windowMode}
+    />
   </head>
   <body
     data-window-mode={windowMode ? "true" : undefined}
