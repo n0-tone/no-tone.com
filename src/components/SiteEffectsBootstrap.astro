@@ -1,0 +1,22 @@
+---
+const cspNonce = Astro.locals.cspNonce;
+---
+
+<script type="module" nonce={cspNonce}>
+  const boot = async () => {
+    const { initSiteEffects } = await import("../scripts/site-effects");
+    initSiteEffects();
+  };
+
+  const schedule = () => {
+    window.requestAnimationFrame(() => {
+      void boot();
+    });
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", schedule, { once: true });
+  } else {
+    schedule();
+  }
+</script>

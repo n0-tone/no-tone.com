@@ -7,6 +7,7 @@ interface Props {
   description: string;
   image?: string;
   schema?: Record<string, unknown> | Array<Record<string, unknown>>;
+  bootstrapSiteEffectsHead?: boolean;
 }
 
 const {
@@ -14,6 +15,7 @@ const {
   description,
   image = "/images/meta/og.png",
   schema,
+  bootstrapSiteEffectsHead = false,
 } = Astro.props as Props;
 const jbMonoFontUrl = import.meta.env.PUBLIC_JB_MONO_FONT_URL;
 const fontOrigin = jbMonoFontUrl ? new URL(jbMonoFontUrl).origin : null;
@@ -92,11 +94,15 @@ const resolvedSchema = [...defaultSchema, ...schemaItems];
   })();
 </script>
 
-<script>
-  import { initSiteEffects } from "../scripts/site-effects";
+{
+  bootstrapSiteEffectsHead && (
+    <script>
+      import { initSiteEffects } from "../scripts/site-effects";
 
-  initSiteEffects();
-</script>
+      initSiteEffects();
+    </script>
+  )
+}
 
 <!-- Shared client helpers -->
 <script is:inline nonce={cspNonce}>

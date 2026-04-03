@@ -312,43 +312,6 @@ const initDesktopWindow = async (): Promise<void> => {
   });
 };
 
-const initStandaloneWindowShell = async (): Promise<void> => {
-  if (document.body?.dataset.standaloneWindow !== "true") return;
-
-  const topbar = document.querySelector(".topbar");
-  const windowRoot = document.querySelector("[data-window-root]");
-  const bottombar = document.querySelector(".bottombar");
-
-  if (
-    !(topbar instanceof HTMLElement) ||
-    !(windowRoot instanceof HTMLElement)
-  ) {
-    return;
-  }
-
-  const { gsap } = await import("gsap");
-  gsap.set(topbar, { autoAlpha: 0, y: -10 });
-  if (bottombar instanceof HTMLElement) {
-    gsap.set(bottombar, { autoAlpha: 0, y: 10 });
-  }
-  gsap.set(windowRoot, {
-    autoAlpha: 0,
-    y: 12,
-    scale: 0.975,
-    transformOrigin: "center top",
-  });
-
-  gsap
-    .timeline({ defaults: { ease: "power2.out" } })
-    .to(topbar, { autoAlpha: 1, y: 0, duration: 0.2 }, 0)
-    .to(
-      bottombar instanceof HTMLElement ? bottombar : {},
-      { autoAlpha: 1, y: 0, duration: 0.2 },
-      0,
-    )
-    .to(windowRoot, { autoAlpha: 1, y: 0, scale: 1, duration: 0.24 }, 0.04);
-};
-
 const closeCurrentWindow = (button: HTMLButtonElement): void => {
   if (document.body?.dataset.standaloneWindow === "true") {
     void runStandaloneNavigation(button);
@@ -375,7 +338,6 @@ export const initSiteEffects = (): void => {
   const boot = () => {
     if (!isWindowMode) {
       void initDesktopWindow();
-      void initStandaloneWindowShell();
     }
   };
 

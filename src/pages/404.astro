@@ -2,6 +2,7 @@
 import BaseHead from "../components/BaseHead.astro";
 import Footer from "../components/Footer.astro";
 import Header from "../components/Header.astro";
+import SiteEffectsBootstrap from "../components/SiteEffectsBootstrap.astro";
 const windowMode = Astro.url.searchParams.get("window") === "1";
 ---
 
@@ -32,5 +33,6 @@ const windowMode = Astro.url.searchParams.get("window") === "1";
       </div>
     </main>
     {!windowMode && <Footer />}
+    <SiteEffectsBootstrap />
   </body>
 </html>
