@@ -1,4 +1,8 @@
-<script>
+---
+const cspNonce = Astro.locals.cspNonce;
+---
+
+<script is:inline nonce={cspNonce}>
   // @ts-nocheck
   const computeWindowRect = () => {
     const width = Math.min(window.innerWidth - 40, 920);
@@ -9,6 +13,14 @@
       width,
       height,
     };
+  };
+
+  let gsapPromise;
+  const loadGsap = async () => {
+    if (!gsapPromise) {
+      gsapPromise = import("gsap").then((mod) => mod.gsap);
+    }
+    return gsapPromise;
   };
 
   const runStandaloneNavigation = async (button) => {
@@ -35,7 +47,7 @@
     }
 
     document.body.dataset.windowClosing = "true";
-    const { gsap } = await import("gsap");
+    const gsap = await loadGsap();
 
     await new Promise((resolve) => {
       gsap
@@ -99,8 +111,6 @@
     ) {
       return;
     }
-
-    const { gsap } = await import("gsap");
 
     let activeIcon = null;
     let isFullscreen = false;
@@ -168,7 +178,8 @@
       height: window.innerHeight - 24,
     });
 
-    const animateToRect = (rect) => {
+    const animateToRect = async (rect) => {
+      const gsap = await loadGsap();
       gsap.to(frame, {
         left: rect.left,
         top: rect.top,
@@ -179,7 +190,8 @@
       });
     };
 
-    const closeShell = () => {
+    const closeShell = async () => {
+      const gsap = await loadGsap();
       if (!(activeIcon instanceof HTMLAnchorElement)) {
         shell.hidden = true;
         iframe.src = "about:blank";
@@ -223,29 +235,35 @@
         );
     };
 
-    closeButton.addEventListener("click", closeShell);
-    backdrop.addEventListener("click", closeShell);
+    closeButton.addEventListener("click", () => {
+      void closeShell();
+    });
+    backdrop.addEventListener("click", () => {
+      void closeShell();
+    });
 
     fullscreenButton.addEventListener("click", () => {
       if (shell.hidden) return;
       isFullscreen = !isFullscreen;
       shell.classList.toggle("desktopWindow--fullscreen", isFullscreen);
-      animateToRect(isFullscreen ? getFullscreenRect() : getNormalRect());
+      void animateToRect(isFullscreen ? getFullscreenRect() : getNormalRect());
     });
 
     window.addEventListener("resize", () => {
       if (shell.hidden) return;
-      animateToRect(isFullscreen ? getFullscreenRect() : getNormalRect());
+      void animateToRect(isFullscreen ? getFullscreenRect() : getNormalRect());
     });
 
     const links = desktop.querySelectorAll('.icon[href^="/"]');
     links.forEach((link) => {
-      link.addEventListener("click", (event) => {
+      link.addEventListener("click", async (event) => {
         if (event.defaultPrevented) return;
         if (event.button !== 0) return;
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
           return;
         if (link.dataset.skipWindowAnimation === "true") return;
+
+        const gsap = await loadGsap();
 
         const url = new URL(link.href, window.location.href);
         if (url.origin !== window.location.origin) return;
@@ -262,7 +280,8 @@
         title.textContent = `${link.querySelector(".icon__label")?.textContent?.trim() || "window"}/`;
         iframe.style.opacity = "0";
 
-        iframe.onload = () => {
+        iframe.onload = async () => {
+          const gsap = await loadGsap();
           applyThemeToIframe();
           gsap.to(iframe, { autoAlpha: 1, duration: 0.18, ease: "power2.out" });
         };

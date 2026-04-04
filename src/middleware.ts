@@ -33,6 +33,7 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 
 	const downstreamResponse = await next();
 	const response = new Response(downstreamResponse.body, downstreamResponse);
+	response.headers.delete('Content-Security-Policy-Report-Only');
 
 	// Optionally prevent caching of HTML responses that contain nonces
 	const contentType = response.headers.get('Content-Type') || '';

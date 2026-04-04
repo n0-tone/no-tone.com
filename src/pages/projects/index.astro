@@ -8,6 +8,7 @@ const title = "no-tone | projects";
 const description =
   "Browse no-tone GitHub projects, repositories, tech stacks, and published websites.";
 const windowMode = Astro.url.searchParams.get("window") === "1";
+const cspNonce = Astro.locals.cspNonce;
 ---
 
 <!doctype html>
@@ -98,7 +99,7 @@ const windowMode = Astro.url.searchParams.get("window") === "1";
     </main>
     {!windowMode && <Footer />}
     <SiteEffects />
-    <script>
+    <script is:inline nonce={cspNonce}>
       // @ts-nocheck
       (() => {
         const CACHE_KEY = "no-tone:projects-cache:v1";

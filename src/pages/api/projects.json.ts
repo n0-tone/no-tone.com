@@ -25,10 +25,35 @@ type RateLimitState = {
 	resetAt: number;
 	blocked: boolean;
 };
+type LastSuccessSnapshot = {
+	body: string;
+	etag: string | null;
+	lastUpdated: string;
+	cachedAtMs: number;
+};
 
 const rateLimitStore: Map<string, RateLimitEntry> =
 	(globalThis as any).__noToneProjectRateLimit ??
 	((globalThis as any).__noToneProjectRateLimit = new Map<string, RateLimitEntry>());
+
+const readLastSuccessSnapshot = (): LastSuccessSnapshot | null => {
+	return ((globalThis as any).__noToneProjectsLastSuccess ?? null) as
+		| LastSuccessSnapshot
+		| null;
+};
+
+const writeLastSuccessSnapshot = (
+	body: string,
+	etag: string | null,
+	lastUpdated: string,
+): void => {
+	(globalThis as any).__noToneProjectsLastSuccess = {
+		body,
+		etag,
+		lastUpdated,
+		cachedAtMs: Date.now(),
+	} as LastSuccessSnapshot;
+};
 
 const buildHeaders = (origin: string | null) => {
 	const headers: Record<string, string> = {
@@ -190,6 +215,22 @@ const responseFromCached = (
 	return new Response(cached.body, { status: 200, headers });
 };
 
+const responseFromMemory = (
+	snapshot: LastSuccessSnapshot,
+	origin: string | null,
+	rate: RateLimitState,
+	extra?: Record<string, string>,
+): Response => {
+	const headers = buildHeadersWithRate(origin, rate, {
+		[LAST_UPDATED_HEADER]: snapshot.lastUpdated,
+		'X-No-Tone-Cache': 'memory-stale',
+		Warning: '110 - "Response is stale"',
+		...(extra ?? {}),
+	});
+	if (snapshot.etag) headers['ETag'] = snapshot.etag;
+	return new Response(snapshot.body, { status: 200, headers });
+};
+
 const methodNotAllowed = (
 	origin: string | null,
 	rate: RateLimitState,
@@ -299,6 +340,7 @@ export async function GET(context: APIContext): Promise<Response> {
 							const body = await cachedRes.clone().text();
 							const lastUpdated =
 								cachedRes.headers.get(LAST_UPDATED_HEADER) ?? '';
+							writeLastSuccessSnapshot(body, cachedEtag ?? null, lastUpdated);
 							await cache.put(
 								cacheKey,
 								toCachedResponse(body, cachedEtag ?? null, lastUpdated),
@@ -318,6 +360,7 @@ export async function GET(context: APIContext): Promise<Response> {
 						const simplified = simplifyRepos(raw);
 						const body = JSON.stringify(simplified);
 						const etag = upstream.headers.get('ETag');
+						writeLastSuccessSnapshot(body, etag, getLastUpdatedAt(simplified));
 						await cache.put(
 							cacheKey,
 							toCachedResponse(body, etag, getLastUpdatedAt(simplified)),
@@ -364,6 +407,10 @@ export async function GET(context: APIContext): Promise<Response> {
 					Warning: '110 - "Response is stale"',
 				});
 			}
+			const memorySnapshot = readLastSuccessSnapshot();
+			if (memorySnapshot) {
+				return responseFromMemory(memorySnapshot, origin ?? null, rate);
+			}
 			return jsonError(
 				503,
 				'Projects are temporarily unavailable',
@@ -379,6 +426,7 @@ export async function GET(context: APIContext): Promise<Response> {
 			// Not modified: reuse cached body but bump cached timestamp
 			const body = await cached.clone().text();
 			const lastUpdated = cached.headers.get(LAST_UPDATED_HEADER) ?? '';
+			writeLastSuccessSnapshot(body, cachedEtag ?? null, lastUpdated);
 			const newCached = toCachedResponse(body, cachedEtag ?? null, lastUpdated);
 			if (cache) {
 				try {
@@ -408,6 +456,12 @@ export async function GET(context: APIContext): Promise<Response> {
 					Warning: '110 - "Response is stale"',
 				});
 			}
+			const memorySnapshot = readLastSuccessSnapshot();
+			if (memorySnapshot) {
+				return responseFromMemory(memorySnapshot, origin ?? null, rate, {
+					'X-Upstream-Status': String(upstream.status),
+				});
+			}
 			return jsonError(
 				503,
 				'Projects are temporarily unavailable',
@@ -424,6 +478,7 @@ export async function GET(context: APIContext): Promise<Response> {
 		const simplified = simplifyRepos(raw);
 		const body = JSON.stringify(simplified);
 		const lastUpdated = getLastUpdatedAt(simplified);
+		writeLastSuccessSnapshot(body, upstream.headers.get('ETag'), lastUpdated);
 
 		// Store in edge cache for subsequent requests (store ETag + cached-at)
 		const etag = upstream.headers.get('ETag');
@@ -448,6 +503,21 @@ export async function GET(context: APIContext): Promise<Response> {
 		logProjectsApiIssue('handler_failed', {
 			error: error instanceof Error ? error.message : 'unknown-error',
 		});
+		const memorySnapshot = readLastSuccessSnapshot();
+		if (memorySnapshot) {
+			return new Response(memorySnapshot.body, {
+				status: 200,
+				headers: {
+					...buildHeaders(origin ?? null),
+					[LAST_UPDATED_HEADER]: memorySnapshot.lastUpdated,
+					'X-No-Tone-Cache': 'memory-stale',
+					Warning: '110 - "Response is stale"',
+					...(memorySnapshot.etag
+						? { ETag: memorySnapshot.etag }
+						: {}),
+				},
+			});
+		}
 		return new Response(
 			JSON.stringify({ error: 'Projects are temporarily unavailable' }),
 			{
