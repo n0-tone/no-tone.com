@@ -411,15 +411,15 @@ export async function GET(context: APIContext): Promise<Response> {
 			if (memorySnapshot) {
 				return responseFromMemory(memorySnapshot, origin ?? null, rate);
 			}
-			return jsonError(
-				503,
-				'Projects are temporarily unavailable',
-				origin ?? null,
-				rate,
-				{
+			return new Response('[]', {
+				status: 200,
+				headers: buildHeadersWithRate(origin ?? null, rate, {
+					[LAST_UPDATED_HEADER]: '',
+					'X-No-Tone-Cache': 'empty-fallback',
+					Warning: '110 - "Response is stale"',
 					'Retry-After': String(BROWSER_TTL_SECONDS),
-				},
-			);
+				}),
+			});
 		}
 
 		if (upstream.status === 304 && cached) {
@@ -462,16 +462,16 @@ export async function GET(context: APIContext): Promise<Response> {
 					'X-Upstream-Status': String(upstream.status),
 				});
 			}
-			return jsonError(
-				503,
-				'Projects are temporarily unavailable',
-				origin ?? null,
-				rate,
-				{
+			return new Response('[]', {
+				status: 200,
+				headers: buildHeadersWithRate(origin ?? null, rate, {
+					[LAST_UPDATED_HEADER]: '',
+					'X-No-Tone-Cache': 'empty-fallback',
+					Warning: '110 - "Response is stale"',
 					'Retry-After': String(BROWSER_TTL_SECONDS),
 					'X-Upstream-Status': String(upstream.status),
-				},
-			);
+				}),
+			});
 		}
 
 		const raw = await upstream.json();
@@ -518,13 +518,15 @@ export async function GET(context: APIContext): Promise<Response> {
 				},
 			});
 		}
-		return new Response(
-			JSON.stringify({ error: 'Projects are temporarily unavailable' }),
-			{
-				status: 503,
-				headers: buildHeaders(origin ?? null),
+		return new Response('[]', {
+			status: 200,
+			headers: {
+				...buildHeaders(origin ?? null),
+				[LAST_UPDATED_HEADER]: '',
+				'X-No-Tone-Cache': 'empty-fallback',
+				Warning: '110 - "Response is stale"',
 			},
-		);
+		});
 	}
 }
 

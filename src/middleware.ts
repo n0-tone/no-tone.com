@@ -100,5 +100,6 @@ export const onRequest: MiddlewareHandler = async (context, next) => {
 	const csp = directives.join('; ');
 
 	response.headers.set(CSP_HEADER, csp);
+	response.headers.set('Content-Security-Policy-Report-Only', csp);
 	return response;
 };

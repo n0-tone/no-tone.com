@@ -1,9 +1,12 @@
 ---
+import gsapUrl from "gsap?url";
 const cspNonce = Astro.locals.cspNonce;
 ---
 
-<script is:inline nonce={cspNonce}>
+<script is:inline nonce={cspNonce} define:vars={{ gsapUrl }}>
   // @ts-nocheck
+  const GSAP_URL = gsapUrl;
+
   const computeWindowRect = () => {
     const width = Math.min(window.innerWidth - 40, 920);
     const height = Math.min(window.innerHeight - 84, 640);
@@ -18,7 +21,9 @@ const cspNonce = Astro.locals.cspNonce;
   let gsapPromise;
   const loadGsap = async () => {
     if (!gsapPromise) {
-      gsapPromise = import("gsap").then((mod) => mod.gsap);
+      gsapPromise = import(GSAP_URL).then(
+        (mod) => mod.gsap ?? mod.default ?? mod,
+      );
     }
     return gsapPromise;
   };
@@ -263,8 +268,6 @@ const cspNonce = Astro.locals.cspNonce;
           return;
         if (link.dataset.skipWindowAnimation === "true") return;
 
-        const gsap = await loadGsap();
-
         const url = new URL(link.href, window.location.href);
         if (url.origin !== window.location.origin) return;
 
@@ -281,9 +284,17 @@ const cspNonce = Astro.locals.cspNonce;
         iframe.style.opacity = "0";
 
         iframe.onload = async () => {
-          const gsap = await loadGsap();
           applyThemeToIframe();
-          gsap.to(iframe, { autoAlpha: 1, duration: 0.18, ease: "power2.out" });
+          try {
+            const iframeGsap = await loadGsap();
+            iframeGsap.to(iframe, {
+              autoAlpha: 1,
+              duration: 0.18,
+              ease: "power2.out",
+            });
+          } catch {
+            iframe.style.opacity = "1";
+          }
         };
         url.searchParams.set("window", "1");
         iframe.src = url.toString();
@@ -294,6 +305,22 @@ const cspNonce = Astro.locals.cspNonce;
         const startLeft = iconRect.left + iconRect.width / 2 - startWidth / 2;
         const startTop = iconRect.top + iconRect.height / 2 - startHeight / 2;
         const finalRect = getNormalRect();
+
+        let gsap = null;
+        try {
+          gsap = await loadGsap();
+        } catch {
+          // Fall back to immediate open if animation library fails.
+        }
+
+        if (!gsap) {
+          frame.style.left = `${finalRect.left}px`;
+          frame.style.top = `${finalRect.top}px`;
+          frame.style.width = `${finalRect.width}px`;
+          frame.style.height = `${finalRect.height}px`;
+          frame.style.opacity = "1";
+          return;
+        }
 
         gsap.killTweensOf([backdrop, frame, iframe]);
         gsap.set(backdrop, { autoAlpha: 0 });
