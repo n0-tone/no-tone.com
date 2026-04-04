@@ -3,7 +3,7 @@ import BaseHead from "../components/BaseHead.astro";
 import DesktopWindow from "../components/DesktopWindow.astro";
 import Header from "../components/Header.astro";
 import Footer from "../components/Footer.astro";
-import SiteEffectsBootstrap from "../components/SiteEffectsBootstrap.astro";
+import SiteEffects from "../components/SiteEffects.astro";
 import { SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from "../consts";
 const cspNonce = Astro.locals.cspNonce;
 const homeSchema = {
@@ -83,7 +83,7 @@ const homeSchema = {
       </a>
     </main>
     <DesktopWindow />
-    <SiteEffectsBootstrap />
+    <SiteEffects />
     <Footer />
 
     <script is:inline nonce={cspNonce}>

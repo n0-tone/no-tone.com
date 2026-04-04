@@ -237,8 +237,7 @@ hr {
   margin: 0 auto;
   font-size: 16px;
   letter-spacing: 0.02em;
-  /* Let desktop icons near the top be clickable/draggable.
-     Re-enable pointer events only on actual controls below. */
+
   pointer-events: none;
 }
 
@@ -397,7 +396,6 @@ body[data-window-mode="true"] .projects__panel {
   width: 100%;
 }
 
-/* Projects page (ported from n0-tone) */
 .projects {
   min-height: 100vh;
   display: flex;
@@ -554,7 +552,7 @@ body[data-window-mode="true"] .projects__panel {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  /* Reserve space so the list loading doesn't shift the page */
+
   min-height: 520px;
 }
 
@@ -609,7 +607,7 @@ body[data-window-mode="true"] .projects__panel {
   margin-top: 8px;
   font-size: 16px;
   color: var(--fg);
-  /* Keep card heights stable and avoid huge LCP candidates */
+
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -683,16 +681,6 @@ body[data-window-mode="true"] .projects__panel {
   .projects__list {
     min-height: 380px;
   }
-}
-
-.headerLink {
-  display: inline-block;
-  text-decoration: none;
-}
-
-.headerLink.active {
-  font-weight: bolder;
-  text-decoration: underline;
 }
 
 .desktop {
@@ -888,7 +876,7 @@ body[data-window-mode="true"] .projects__panel {
 .emptyCanvas .emptyDraggable img {
   display: block;
   image-rendering: auto;
-  /* Slightly bigger than folder glyphs (~72px), but still small */
+
   width: 77px;
   height: auto;
 }
@@ -1092,11 +1080,11 @@ html.is-lightbox-open .bottombar__nav {
   margin: 0;
   padding: 0;
   font-size: 16px;
-  /* Tree connector tuning (adjust these without changing the connector logic) */
-  --tree-indent: 20px; /* horizontal distance from vertical line to item content */
-  --tree-nudge: 3.5px; /* shifts the whole connector column to the right */
-  --tree-gap: 5px; /* gap between elbow end and the chevron/text */
-  --tree-elbow-y: 0.9em; /* vertical position of the elbow */
+
+  --tree-indent: 20px;
+  --tree-nudge: 3.5px;
+  --tree-gap: 5px;
+  --tree-elbow-y: 0.9em;
 }
 
 .tree__item {
@@ -1155,16 +1143,15 @@ html.is-lightbox-open .bottombar__nav {
   border-bottom: 1px solid var(--border);
 }
 
-/* Classic tree: last item should be a corner (└), not a dangling vertical line */
 .tree__children > .tree__item:last-child::after {
   content: "";
   position: absolute;
-  /* Cover the parent's border-left inside this last row */
+
   left: calc(-1 * var(--tree-indent) - 2px);
-  /* Start just BELOW the elbow so the corner junction stays continuous */
+
   top: calc(var(--tree-elbow-y) + 1px);
-  bottom: -6px; /* be generous to fully cover anti-aliased pixels */
-  width: 7px; /* wider than the 1px border so it always hides it */
+  bottom: -6px;
+  width: 7px;
   background: var(--bg);
   pointer-events: none;
   z-index: 1;

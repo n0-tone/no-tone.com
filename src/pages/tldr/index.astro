@@ -3,7 +3,7 @@ import BaseHead from "../../components/BaseHead.astro";
 import Footer from "../../components/Footer.astro";
 import Header from "../../components/Header.astro";
 import NoteDate from "../../components/NoteDate.astro";
-import SiteEffectsBootstrap from "../../components/SiteEffectsBootstrap.astro";
+import SiteEffects from "../../components/SiteEffects.astro";
 
 const title = "no-tone | tldr";
 const description =
@@ -76,6 +76,6 @@ const windowMode = Astro.url.searchParams.get("window") === "1";
       </div>
     </main>
     {!windowMode && <Footer />}
-    <SiteEffectsBootstrap />
+    <SiteEffects />
   </body>
 </html>
